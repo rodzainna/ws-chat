@@ -67,12 +67,13 @@ export function registerWsHandlers(wss: WebSocketServer): void {
       }
     });
 
-    const cleanup = () => {
+    socket.on("close", () => {
       registry.leaveAll(socket);
       console.log("client disconnected");
-    };
+    });
 
-    socket.on("close", cleanup);
-    socket.on("error", cleanup);
+    socket.on("error", (err) => {
+      console.error("socket error:", err);
+    });
   });
 }
