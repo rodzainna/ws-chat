@@ -1,19 +1,11 @@
 import { WebSocketServer } from "ws";
+import { registerWsHandlers } from "./ws/handlers.js";
 
 const PORT = Number(process.env.PORT ?? 8080);
+const MAX_PAYLOAD_BYTES = 16 * 1024;
 
-const wss = new WebSocketServer({ port: PORT });
+const wss = new WebSocketServer({ port: PORT, maxPayload: MAX_PAYLOAD_BYTES });
 
-wss.on("connection", (socket) => {
-  console.log("client connected");
-
-  socket.on("message", (data: Buffer) => {
-    console.log("received:", data.toString());
-  });
-
-  socket.on("close", () => {
-    console.log("client disconnected");
-  });
-});
+registerWsHandlers(wss);
 
 console.log(`WebSocket server listening on ws://localhost:${PORT}`);
