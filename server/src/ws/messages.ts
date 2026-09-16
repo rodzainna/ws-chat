@@ -1,0 +1,77 @@
+export type ClientMessage =
+  | { type: "join"; roomId: string }
+  | { type: "leave"; roomId: string }
+  | { type: "send"; roomId: string; content: string };
+
+export type ChatMessage = {
+  id: string;
+  roomId: string;
+  content: string;
+  createdAt: string;
+};
+
+export type ServerMessage =
+  | { type: "joined"; roomId: string }
+  | { type: "message_created"; message: ChatMessage }
+  | { type: "error"; code: string; message: string };
+
+type ParseResult =
+  | { ok: true; message: ClientMessage }
+  | { ok: false; code: string; message: string };
+
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === "string" && value.length > 0;
+}
+
+function invalidFrame(message: string): ParseResult {
+  return { ok: false, code: "INVALID_FRAME", message };
+}
+
+export function parseClientMessage(raw: string): ParseResult {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw) as unknown;
+  } catch {
+    return {
+      ok: false,
+      code: "INVALID_JSON",
+      message: "Frame is not valid JSON",
+    };
+  }
+
+  if (typeof parsed !== "object" || parsed === null) {
+    return invalidFrame("Frame must be a JSON object");
+  }
+
+  const { type } = parsed as Record<string, unknown>;
+  if (typeof type !== "string") {
+    return invalidFrame('Frame must have a string "type" field');
+  }
+
+  switch (type) {
+    case "join":
+    case "leave": {
+      const { roomId } = parsed as Record<string, unknown>;
+      if (!isNonEmptyString(roomId)) {
+        return invalidFrame(`"${type}" requires a non-empty roomId`);
+      }
+      return { ok: true, message: { type, roomId } };
+    }
+    case "send": {
+      const { roomId, content } = parsed as Record<string, unknown>;
+      if (!isNonEmptyString(roomId)) {
+        return invalidFrame('"send" requires a non-empty roomId');
+      }
+      if (typeof content !== "string") {
+        return invalidFrame('"send" requires string content');
+      }
+      return { ok: true, message: { type: "send", roomId, content } };
+    }
+    default:
+      return {
+        ok: false,
+        code: "UNKNOWN_TYPE",
+        message: `Unknown message type: ${type}`,
+      };
+  }
+}
