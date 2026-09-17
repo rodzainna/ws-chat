@@ -3,14 +3,21 @@ import eslintConfigPrettier from "eslint-config-prettier";
 
 export default tseslint.config(
   {
-    ignores: ["**/dist/**", "**/node_modules/**", "**/*.md"],
+    ignores: [
+      "**/dist/**",
+      "**/node_modules/**",
+      "**/*.md",
+      "server/generated/**",
+    ],
   },
   {
     files: ["**/*.ts"],
     extends: [tseslint.configs.recommendedTypeChecked],
     languageOptions: {
       parserOptions: {
-        projectService: true,
+        projectService: {
+          allowDefaultProject: ["server/prisma.config.ts"],
+        },
         tsconfigRootDir: import.meta.dirname,
       },
     },
