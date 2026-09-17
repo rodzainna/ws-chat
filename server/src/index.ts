@@ -3,11 +3,13 @@ import http from "node:http";
 import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
+import { parseCookie } from "cookie";
 import { ApolloServer } from "@apollo/server";
 import { ApolloServerPluginDrainHttpServer } from "@apollo/server/plugin/drainHttpServer";
 import { expressMiddleware } from "@as-integrations/express5";
 import { WebSocketServer } from "ws";
 import { registerWsHandlers } from "./ws/handlers.js";
+import type { AuthenticatedRequest } from "./ws/types.js";
 import { isDevelopment } from "./env.js";
 import { disconnectPrisma } from "./db/prisma.js";
 import { verifyToken } from "./auth/jwt.js";
@@ -43,12 +45,33 @@ const wss = new WebSocketServer({
   server: httpServer,
   path: "/ws",
   maxPayload: MAX_WS_PAYLOAD_BYTES,
+  // the origin check only stops other webpages; non-browser clients can fake
+  // Origin, so the JWT check below is the real auth
   verifyClient: (info, callback) => {
-    if (info.origin === getCorsOrigin()) {
-      callback(true);
-    } else {
+    if (info.origin !== getCorsOrigin()) {
       callback(false, 403, "Origin not allowed");
+      return;
     }
+    const token = parseCookie(info.req.headers.cookie ?? "")[
+      ACCESS_TOKEN_COOKIE
+    ];
+    if (!token) {
+      callback(false, 401, "Authentication required");
+      return;
+    }
+    verifyToken(token)
+      .then((userId) => {
+        if (!userId) {
+          callback(false, 401, "Authentication required");
+          return;
+        }
+        (info.req as AuthenticatedRequest).userId = userId;
+        callback(true);
+      })
+      .catch((err: unknown) => {
+        console.error("Unexpected error verifying WS access token:", err);
+        callback(false, 401, "Authentication required");
+      });
   },
 });
 registerWsHandlers(wss);

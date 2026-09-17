@@ -1,6 +1,8 @@
 import { randomUUID } from "node:crypto";
+import type { IncomingMessage } from "node:http";
 import type { WebSocket, WebSocketServer } from "ws";
 import { RoomRegistry } from "./roomRegistry.js";
+import type { AuthenticatedRequest, AuthenticatedWebSocket } from "./types.js";
 import {
   parseClientMessage,
   type ChatMessage,
@@ -14,8 +16,15 @@ function send(socket: WebSocket, message: ServerMessage): void {
 export function registerWsHandlers(wss: WebSocketServer): void {
   const registry = new RoomRegistry();
 
-  wss.on("connection", (socket: WebSocket) => {
-    console.log("client connected");
+  wss.on("connection", (socket: WebSocket, request: IncomingMessage) => {
+    const userId = (request as AuthenticatedRequest).userId;
+    if (!userId) {
+      socket.close(1008, "Authentication required");
+      return;
+    }
+    (socket as AuthenticatedWebSocket).userId = userId;
+
+    console.log(`client connected (user ${userId})`);
 
     socket.on("message", (data: Buffer) => {
       const result = parseClientMessage(data.toString());
