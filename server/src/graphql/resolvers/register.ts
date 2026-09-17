@@ -1,7 +1,5 @@
 import { hashPassword } from "../../auth/password.js";
-import { issueToken } from "../../auth/jwt.js";
-import { generateRefreshToken } from "../../auth/refreshToken.js";
-import { setAuthCookies } from "../../auth/cookies.js";
+import { establishSession } from "../../auth/session.js";
 import {
   validateUsername,
   validateEmail,
@@ -9,7 +7,6 @@ import {
   type FieldError,
 } from "../../auth/validation.js";
 import { createUser } from "../../db/users.js";
-import { createRefreshTokenRecord } from "../../db/refreshTokens.js";
 import { getViolatedUniqueField } from "../../db/prismaErrors.js";
 import { Prisma, type User } from "../../generated/prisma/client.js";
 import type { GraphQLContext } from "../context.js";
@@ -48,22 +45,26 @@ export async function register(
       passwordHash,
     });
   } catch (err) {
-    if (err instanceof Prisma.PrismaClientKnownRequestError) {
+    if (
+      err instanceof Prisma.PrismaClientKnownRequestError &&
+      err.code === "P2002"
+    ) {
       const field = getViolatedUniqueField(err);
-      if (field && DUPLICATE_MESSAGES[field]) {
-        return {
-          user: null,
-          userErrors: [{ field: [field], message: DUPLICATE_MESSAGES[field] }],
-        };
-      }
+      const message = field ? DUPLICATE_MESSAGES[field] : undefined;
+      return {
+        user: null,
+        userErrors: [
+          {
+            field: field ? [field] : [],
+            message: message ?? "That information is already in use",
+          },
+        ],
+      };
     }
     throw err;
   }
 
-  const accessToken = await issueToken(user.id);
-  const refreshToken = generateRefreshToken();
-  await createRefreshTokenRecord(user.id, refreshToken);
-  setAuthCookies(context.res, { accessToken, refreshToken });
+  await establishSession(user.id, context.res);
 
   return { user, userErrors: [] };
 }

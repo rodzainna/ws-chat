@@ -1,3 +1,5 @@
+import { MAX_PASSWORD_BYTES } from "./password.js";
+
 const USERNAME_PATTERN = /^[a-z0-9_]{3,20}$/;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MIN_PASSWORD_LENGTH = 8;
@@ -30,6 +32,12 @@ export function validatePassword(password: string): FieldError | null {
     return {
       field: "password",
       message: `Password must be at least ${MIN_PASSWORD_LENGTH} characters`,
+    };
+  }
+  if (Buffer.byteLength(password, "utf8") > MAX_PASSWORD_BYTES) {
+    return {
+      field: "password",
+      message: `Password must be at most ${MAX_PASSWORD_BYTES} bytes`,
     };
   }
   return null;

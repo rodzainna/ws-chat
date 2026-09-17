@@ -1,9 +1,6 @@
 import { verifyPassword, hashPassword } from "../../auth/password.js";
-import { issueToken } from "../../auth/jwt.js";
-import { generateRefreshToken } from "../../auth/refreshToken.js";
-import { setAuthCookies } from "../../auth/cookies.js";
+import { establishSession } from "../../auth/session.js";
 import { findUserByUsername } from "../../db/users.js";
-import { createRefreshTokenRecord } from "../../db/refreshTokens.js";
 import type { User } from "../../generated/prisma/client.js";
 import type { GraphQLContext } from "../context.js";
 import type { GraphQLUserError } from "../userErrors.js";
@@ -18,12 +15,12 @@ const INVALID_CREDENTIALS: GraphQLUserError = {
   message: "Invalid username or password",
 };
 
-let cachedDummyHash: string | undefined;
-async function getDummyHash(): Promise<string> {
-  if (!cachedDummyHash) {
-    cachedDummyHash = await hashPassword("only-used-to-equalize-login-timing");
+let cachedDummyHashPromise: Promise<string> | undefined;
+function getDummyHash(): Promise<string> {
+  if (!cachedDummyHashPromise) {
+    cachedDummyHashPromise = hashPassword("only-used-to-equalize-login-timing");
   }
-  return cachedDummyHash;
+  return cachedDummyHashPromise;
 }
 
 export async function login(
@@ -45,10 +42,7 @@ export async function login(
     return { user: null, userErrors: [INVALID_CREDENTIALS] };
   }
 
-  const accessToken = await issueToken(user.id);
-  const refreshToken = generateRefreshToken();
-  await createRefreshTokenRecord(user.id, refreshToken);
-  setAuthCookies(context.res, { accessToken, refreshToken });
+  await establishSession(user.id, context.res);
 
   return { user, userErrors: [] };
 }

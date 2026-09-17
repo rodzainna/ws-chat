@@ -70,8 +70,14 @@ app.use(
   expressMiddleware(apollo, {
     context: async ({ req, res }) => {
       const token: unknown = req.cookies[ACCESS_TOKEN_COOKIE];
-      const userId =
-        typeof token === "string" ? await verifyToken(token) : null;
+      let userId: string | null = null;
+      if (typeof token === "string") {
+        try {
+          userId = await verifyToken(token);
+        } catch (err) {
+          console.error("Unexpected error verifying access token:", err);
+        }
+      }
       return { req, res, userId };
     },
   }),
