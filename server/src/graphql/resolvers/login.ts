@@ -15,10 +15,17 @@ const INVALID_CREDENTIALS: GraphQLUserError = {
   message: "Invalid username or password",
 };
 
+// compared against when the user doesn't exist, so response time doesn't
+// reveal valid usernames. Caches the promise; cleared on rejection.
 let cachedDummyHashPromise: Promise<string> | undefined;
 function getDummyHash(): Promise<string> {
   if (!cachedDummyHashPromise) {
-    cachedDummyHashPromise = hashPassword("only-used-to-equalize-login-timing");
+    cachedDummyHashPromise = hashPassword(
+      "only-used-to-equalize-login-timing",
+    ).catch((err: unknown) => {
+      cachedDummyHashPromise = undefined;
+      throw err;
+    });
   }
   return cachedDummyHashPromise;
 }

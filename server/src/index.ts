@@ -58,6 +58,21 @@ const apollo = new ApolloServer<GraphQLContext>({
   // Apollo's own signal handlers re-send the signal and ran shutdown() twice;
   // ours below also drains the WS clients Apollo doesn't know about
   stopOnTerminationSignals: false,
+  // Apollo doesn't redact unexpected errors (a DB outage leaked raw Prisma
+  // text). Expected failures are userErrors, so anything internal is hidden.
+  formatError: (formattedError, error) => {
+    if (
+      !isDevelopment() &&
+      formattedError.extensions?.code === "INTERNAL_SERVER_ERROR"
+    ) {
+      console.error("Unexpected GraphQL error:", error);
+      return {
+        message: "Internal server error",
+        extensions: { code: "INTERNAL_SERVER_ERROR" },
+      };
+    }
+    return formattedError;
+  },
 });
 
 await apollo.start();
