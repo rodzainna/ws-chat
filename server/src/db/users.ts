@@ -15,7 +15,7 @@ export function createUser(input: {
   return getPrisma().user.create({
     data: {
       username: input.username.toLowerCase(),
-      email: input.email,
+      email: input.email.toLowerCase(),
       passwordHash: input.passwordHash,
     },
   });
