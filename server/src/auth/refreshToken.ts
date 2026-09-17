@@ -1,31 +1,14 @@
 import { randomBytes, createHash } from "node:crypto";
+import { getPositiveIntEnv } from "../env.js";
 
 const TOKEN_BYTES = 32;
 
 let cachedExpiryDays: number | undefined;
 function getExpiryDays(): number {
   if (cachedExpiryDays === undefined) {
-    cachedExpiryDays = parseExpiryDays(
-      process.env.JWT_REFRESH_TOKEN_EXPIRY_DAYS,
-    );
+    cachedExpiryDays = getPositiveIntEnv("JWT_REFRESH_TOKEN_EXPIRY_DAYS", 3);
   }
   return cachedExpiryDays;
-}
-
-function parseExpiryDays(raw: string | undefined): number {
-  if (raw === undefined) return 3;
-  if (!/^\d+(\.\d+)?$/.test(raw.trim())) {
-    throw new Error(
-      `JWT_REFRESH_TOKEN_EXPIRY_DAYS must be a positive number, got "${raw}"`,
-    );
-  }
-  const parsed = Number(raw);
-  if (parsed <= 0) {
-    throw new Error(
-      `JWT_REFRESH_TOKEN_EXPIRY_DAYS must be a positive number, got "${raw}"`,
-    );
-  }
-  return parsed;
 }
 
 export type IssuedRefreshToken = {

@@ -11,6 +11,11 @@ export function findUserById(id: string): Promise<User | null> {
   return getPrisma().user.findUnique({ where: { id } });
 }
 
+export async function findActiveUserById(id: string): Promise<User | null> {
+  const user = await findUserById(id);
+  return user && user.isActive ? user : null;
+}
+
 export function createUser(input: {
   username: string;
   email: string;
