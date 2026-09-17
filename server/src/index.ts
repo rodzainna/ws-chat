@@ -2,6 +2,7 @@ import "dotenv/config";
 import http from "node:http";
 import express from "express";
 import cors from "cors";
+import cookieParser from "cookie-parser";
 import { ApolloServer } from "@apollo/server";
 import { ApolloServerPluginDrainHttpServer } from "@apollo/server/plugin/drainHttpServer";
 import { expressMiddleware } from "@as-integrations/express5";
@@ -9,6 +10,8 @@ import { WebSocketServer } from "ws";
 import { registerWsHandlers } from "./ws/handlers.js";
 import { isDevelopment } from "./env.js";
 import { disconnectPrisma } from "./db/prisma.js";
+import { verifyToken } from "./auth/jwt.js";
+import { ACCESS_TOKEN_COOKIE } from "./auth/cookies.js";
 import { typeDefs } from "./graphql/schema.js";
 import { resolvers } from "./graphql/resolvers.js";
 import type { GraphQLContext } from "./graphql/context.js";
@@ -55,6 +58,21 @@ const apollo = new ApolloServer<GraphQLContext>({
   // Apollo's own signal handlers re-send the signal and ran shutdown() twice;
   // ours below also drains the WS clients Apollo doesn't know about
   stopOnTerminationSignals: false,
+  // Apollo doesn't redact unexpected errors (a DB outage leaked raw Prisma
+  // text). Expected failures are userErrors, so anything internal is hidden.
+  formatError: (formattedError, error) => {
+    if (
+      !isDevelopment() &&
+      formattedError.extensions?.code === "INTERNAL_SERVER_ERROR"
+    ) {
+      console.error("Unexpected GraphQL error:", error);
+      return {
+        message: "Internal server error",
+        extensions: { code: "INTERNAL_SERVER_ERROR" },
+      };
+    }
+    return formattedError;
+  },
 });
 
 await apollo.start();
@@ -62,9 +80,21 @@ await apollo.start();
 app.use(
   "/graphql",
   cors({ origin: getCorsOrigin(), credentials: true }),
+  cookieParser(),
   express.json(),
   expressMiddleware(apollo, {
-    context: ({ req, res }) => Promise.resolve({ req, res }),
+    context: async ({ req, res }) => {
+      const token: unknown = req.cookies[ACCESS_TOKEN_COOKIE];
+      let userId: string | null = null;
+      if (typeof token === "string") {
+        try {
+          userId = await verifyToken(token);
+        } catch (err) {
+          console.error("Unexpected error verifying access token:", err);
+        }
+      }
+      return { req, res, userId };
+    },
   }),
 );
 
