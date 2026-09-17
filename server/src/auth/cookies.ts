@@ -1,26 +1,11 @@
-import ms from "ms";
 import type { Response } from "express";
+import { getAccessTokenExpiryMs } from "./jwt.js";
 import type { IssuedRefreshToken } from "./refreshToken.js";
 
 const ACCESS_TOKEN_COOKIE = "access_token";
 const REFRESH_TOKEN_COOKIE = "refresh_token";
 
-const isProduction = process.env.NODE_ENV === "production";
-
-let cachedAccessTokenMaxAgeMs: number | undefined;
-function getAccessTokenMaxAgeMs(): number {
-  if (cachedAccessTokenMaxAgeMs === undefined) {
-    const raw = process.env.JWT_ACCESS_TOKEN_EXPIRY ?? "15m";
-    const parsed = ms(raw as ms.StringValue);
-    if (typeof parsed !== "number") {
-      throw new Error(
-        `JWT_ACCESS_TOKEN_EXPIRY is not a valid duration: "${raw}"`,
-      );
-    }
-    cachedAccessTokenMaxAgeMs = parsed;
-  }
-  return cachedAccessTokenMaxAgeMs;
-}
+const isSecureCookie = process.env.NODE_ENV !== "development";
 
 export function setAuthCookies(
   res: Response,
@@ -31,14 +16,14 @@ export function setAuthCookies(
 ): void {
   res.cookie(ACCESS_TOKEN_COOKIE, accessToken, {
     httpOnly: true,
-    secure: isProduction,
+    secure: isSecureCookie,
     sameSite: "lax",
     path: "/",
-    maxAge: getAccessTokenMaxAgeMs(),
+    maxAge: getAccessTokenExpiryMs(),
   });
   res.cookie(REFRESH_TOKEN_COOKIE, refreshToken.plaintextToken, {
     httpOnly: true,
-    secure: isProduction,
+    secure: isSecureCookie,
     sameSite: "lax",
     path: "/",
     maxAge: refreshToken.expiresAt.getTime() - Date.now(),
