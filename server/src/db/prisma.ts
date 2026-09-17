@@ -13,3 +13,10 @@ export function getPrisma(): PrismaClient {
   }
   return client;
 }
+
+export async function disconnectPrisma(): Promise<void> {
+  if (client) {
+    await client.$disconnect();
+    client = undefined;
+  }
+}

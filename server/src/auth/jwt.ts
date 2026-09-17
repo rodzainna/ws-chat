@@ -26,8 +26,14 @@ let cachedExpiryMs: number | undefined;
 export function getAccessTokenExpiryMs(): number {
   if (cachedExpiryMs === undefined) {
     const raw = process.env.JWT_ACCESS_TOKEN_EXPIRY ?? "15m";
+    // ms() reads a bare "15" as milliseconds; require a unit
+    if (/^-?\d+(\.\d+)?$/.test(raw)) {
+      throw new Error(
+        `JWT_ACCESS_TOKEN_EXPIRY must include a unit (e.g. "15m", "1h") — a bare number like "${raw}" is parsed as milliseconds, not what was likely intended`,
+      );
+    }
     const parsed = raw === "" ? undefined : ms(raw as ms.StringValue);
-    if (typeof parsed !== "number") {
+    if (typeof parsed !== "number" || parsed <= 0) {
       throw new Error(
         `JWT_ACCESS_TOKEN_EXPIRY is not a valid duration: "${raw}"`,
       );

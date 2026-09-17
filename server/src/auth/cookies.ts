@@ -6,8 +6,6 @@ import type { IssuedRefreshToken } from "./refreshToken.js";
 const ACCESS_TOKEN_COOKIE = "access_token";
 const REFRESH_TOKEN_COOKIE = "refresh_token";
 
-const isSecureCookie = !isDevelopment();
-
 export function setAuthCookies(
   res: Response,
   {
@@ -17,7 +15,7 @@ export function setAuthCookies(
 ): void {
   const cookieOptions = {
     httpOnly: true,
-    secure: isSecureCookie,
+    secure: !isDevelopment(),
     // frontend and API share one origin so Lax works; splitting hosts would
     // need None and reopen CSRF
     sameSite: "lax" as const,
