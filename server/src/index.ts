@@ -12,6 +12,7 @@ import { registerWsHandlers } from "./ws/handlers.js";
 import type { AuthenticatedRequest } from "./ws/types.js";
 import { isDevelopment } from "./env.js";
 import { disconnectPrisma } from "./db/prisma.js";
+import { findActiveUserById } from "./db/users.js";
 import { verifyToken } from "./auth/jwt.js";
 import { ACCESS_TOKEN_COOKIE } from "./auth/cookies.js";
 import { typeDefs } from "./graphql/schema.js";
@@ -60,8 +61,13 @@ const wss = new WebSocketServer({
       return;
     }
     verifyToken(token)
-      .then((userId) => {
+      .then(async (userId) => {
         if (!userId) {
+          callback(false, 401, "Authentication required");
+          return;
+        }
+        const user = await findActiveUserById(userId);
+        if (!user) {
           callback(false, 401, "Authentication required");
           return;
         }

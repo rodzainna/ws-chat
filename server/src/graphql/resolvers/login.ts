@@ -1,6 +1,9 @@
 import { verifyPassword, hashPassword } from "../../auth/password.js";
 import { establishSession } from "../../auth/session.js";
-import { isLoginRateLimited } from "../../auth/loginRateLimit.js";
+import {
+  isLoginRateLimited,
+  recordFailedLoginAttempt,
+} from "../../auth/loginRateLimit.js";
 import { findUserByUsername } from "../../db/users.js";
 import type { User } from "../../generated/prisma/client.js";
 import type { GraphQLContext } from "../context.js";
@@ -41,13 +44,15 @@ export async function login(
   { input }: { input: LoginInput },
   context: GraphQLContext,
 ): Promise<LoginPayload> {
-  if (isLoginRateLimited(input.username, context.req.ip ?? "unknown")) {
+  const ip = context.req.ip ?? "unknown";
+  if (isLoginRateLimited(input.username, ip)) {
     return { user: null, userErrors: [RATE_LIMITED] };
   }
 
   const user = await findUserByUsername(input.username);
   if (!user) {
     await verifyPassword(input.password, await getDummyHash());
+    recordFailedLoginAttempt(input.username, ip);
     return { user: null, userErrors: [INVALID_CREDENTIALS] };
   }
 
@@ -56,6 +61,7 @@ export async function login(
     user.passwordHash,
   );
   if (!passwordMatches || !user.isActive) {
+    recordFailedLoginAttempt(input.username, ip);
     return { user: null, userErrors: [INVALID_CREDENTIALS] };
   }
 
