@@ -1,0 +1,91 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum GlobalRole {
+  ADMIN
+  USER
+  RESTRICTED
+}
+
+enum RoomRole {
+  OWNER
+  MEMBER
+}
+
+model User {
+  id           String     @id @default(uuid())
+  username     String     @unique
+  email        String     @unique
+  passwordHash String
+  globalRole   GlobalRole @default(USER)
+  isActive     Boolean    @default(true)
+  createdAt    DateTime   @default(now())
+
+  createdRooms  Room[]       @relation("RoomCreator")
+  roomMembers   RoomMember[]
+  messages      Message[]
+  mentions      Mention[]
+
+  @@map("users")
+}
+
+model Room {
+  id        String    @id @default(uuid())
+  name      String    @unique
+  isPrivate Boolean   @default(false)
+  createdBy String
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  creator User         @relation("RoomCreator", fields: [createdBy], references: [id], onDelete: Restrict)
+  members RoomMember[]
+  messages Message[]
+
+  @@map("rooms")
+}
+
+model RoomMember {
+  roomId   String
+  userId   String
+  role     RoomRole @default(MEMBER)
+  joinedAt DateTime @default(now())
+
+  room Room @relation(fields: [roomId], references: [id], onDelete: Restrict)
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@id([roomId, userId])
+  @@map("room_members")
+}
+
+model Message {
+  id        String    @id @default(uuid())
+  roomId    String
+  userId    String
+  content   String    @db.VarChar(2000)
+  createdAt DateTime  @default(now())
+  editedAt  DateTime?
+  deletedAt DateTime?
+
+  room     Room      @relation(fields: [roomId], references: [id], onDelete: Restrict)
+  user     User      @relation(fields: [userId], references: [id], onDelete: Restrict)
+  mentions Mention[]
+
+  @@map("messages")
+}
+
+model Mention {
+  messageId       String
+  mentionedUserId String
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Restrict)
+  user    User    @relation(fields: [mentionedUserId], references: [id], onDelete: Restrict)
+
+  @@id([messageId, mentionedUserId])
+  @@map("mentions")
+}
