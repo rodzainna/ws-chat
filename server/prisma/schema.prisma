@@ -27,10 +27,11 @@ model User {
   isActive     Boolean    @default(true)
   createdAt    DateTime   @default(now())
 
-  createdRooms  Room[]       @relation("RoomCreator")
+  createdRooms  Room[]         @relation("RoomCreator")
   roomMembers   RoomMember[]
   messages      Message[]
   mentions      Mention[]
+  refreshTokens RefreshToken[]
 
   @@map("users")
 }
@@ -43,8 +44,8 @@ model Room {
   deletedAt DateTime?
   createdAt DateTime  @default(now())
 
-  creator User         @relation("RoomCreator", fields: [createdBy], references: [id], onDelete: Restrict)
-  members RoomMember[]
+  creator  User         @relation("RoomCreator", fields: [createdBy], references: [id], onDelete: Restrict)
+  members  RoomMember[]
   messages Message[]
 
   @@map("rooms")
@@ -88,4 +89,18 @@ model Mention {
 
   @@id([messageId, mentionedUserId])
   @@map("mentions")
+}
+
+model RefreshToken {
+  id        String    @id @default(uuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([userId])
+  @@map("refresh_tokens")
 }

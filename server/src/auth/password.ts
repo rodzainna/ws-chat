@@ -1,8 +1,14 @@
 import bcrypt from "bcrypt";
 
 const SALT_ROUNDS = 12;
+const MAX_PASSWORD_BYTES = 72;
 
-export function hashPassword(plain: string): Promise<string> {
+export async function hashPassword(plain: string): Promise<string> {
+  if (Buffer.byteLength(plain, "utf8") > MAX_PASSWORD_BYTES) {
+    throw new Error(
+      `Password exceeds bcrypt's ${MAX_PASSWORD_BYTES}-byte limit`,
+    );
+  }
   return bcrypt.hash(plain, SALT_ROUNDS);
 }
 
