@@ -1,5 +1,6 @@
 import { verifyPassword, hashPassword } from "../../auth/password.js";
 import { establishSession } from "../../auth/session.js";
+import { isLoginRateLimited } from "../../auth/loginRateLimit.js";
 import { findUserByUsername } from "../../db/users.js";
 import type { User } from "../../generated/prisma/client.js";
 import type { GraphQLContext } from "../context.js";
@@ -13,6 +14,11 @@ type LoginPayload = { user: User | null; userErrors: GraphQLUserError[] };
 const INVALID_CREDENTIALS: GraphQLUserError = {
   field: [],
   message: "Invalid username or password",
+};
+
+const RATE_LIMITED: GraphQLUserError = {
+  field: [],
+  message: "Too many login attempts. Please try again later.",
 };
 
 // compared against when the user doesn't exist, so response time doesn't
@@ -35,6 +41,10 @@ export async function login(
   { input }: { input: LoginInput },
   context: GraphQLContext,
 ): Promise<LoginPayload> {
+  if (isLoginRateLimited(input.username, context.req.ip ?? "unknown")) {
+    return { user: null, userErrors: [RATE_LIMITED] };
+  }
+
   const user = await findUserByUsername(input.username);
   if (!user) {
     await verifyPassword(input.password, await getDummyHash());

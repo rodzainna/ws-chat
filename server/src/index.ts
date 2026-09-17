@@ -33,6 +33,9 @@ function getCorsOrigin(): string {
 }
 
 const app = express();
+// one proxy hop in production; without this req.ip is the proxy's address
+// and IP-keyed login rate limiting is useless
+app.set("trust proxy", 1);
 
 const httpServer = http.createServer(app);
 
