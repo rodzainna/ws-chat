@@ -1,12 +1,103 @@
 import "dotenv/config";
+import http from "node:http";
+import express from "express";
+import cors from "cors";
+import { ApolloServer } from "@apollo/server";
+import { ApolloServerPluginDrainHttpServer } from "@apollo/server/plugin/drainHttpServer";
+import { expressMiddleware } from "@as-integrations/express5";
 import { WebSocketServer } from "ws";
 import { registerWsHandlers } from "./ws/handlers.js";
+import { typeDefs } from "./graphql/schema.js";
+import { resolvers } from "./graphql/resolvers.js";
+import type { GraphQLContext } from "./graphql/context.js";
 
 const PORT = Number(process.env.PORT ?? 8080);
-const MAX_PAYLOAD_BYTES = 16 * 1024;
+const MAX_WS_PAYLOAD_BYTES = 16 * 1024;
+const SHUTDOWN_GRACE_MS = 3000;
 
-const wss = new WebSocketServer({ port: PORT, maxPayload: MAX_PAYLOAD_BYTES });
+let cachedCorsOrigin: string | undefined;
+function getCorsOrigin(): string {
+  if (!cachedCorsOrigin) {
+    const raw = process.env.CORS_ORIGIN;
+    if (!raw) {
+      throw new Error("CORS_ORIGIN environment variable is not set");
+    }
+    cachedCorsOrigin = raw;
+  }
+  return cachedCorsOrigin;
+}
 
+const app = express();
+
+const httpServer = http.createServer(app);
+
+const wss = new WebSocketServer({
+  server: httpServer,
+  path: "/ws",
+  maxPayload: MAX_WS_PAYLOAD_BYTES,
+  verifyClient: (info, callback) => {
+    if (info.origin === getCorsOrigin()) {
+      callback(true);
+    } else {
+      callback(false, 403, "Origin not allowed");
+    }
+  },
+});
 registerWsHandlers(wss);
 
-console.log(`WebSocket server listening on ws://localhost:${PORT}`);
+const apollo = new ApolloServer<GraphQLContext>({
+  typeDefs,
+  resolvers,
+  introspection: process.env.NODE_ENV === "development",
+  plugins: [ApolloServerPluginDrainHttpServer({ httpServer })],
+  // Apollo's own signal handlers re-send the signal and ran shutdown() twice;
+  // ours below also drains the WS clients Apollo doesn't know about
+  stopOnTerminationSignals: false,
+});
+
+await apollo.start();
+
+app.use(
+  "/graphql",
+  cors({ origin: getCorsOrigin(), credentials: true }),
+  express.json(),
+  expressMiddleware(apollo, {
+    context: ({ req, res }) => Promise.resolve({ req, res }),
+  }),
+);
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// httpServer.close() waits for every connection, including WS sockets, so
+// close them first (then terminate stragglers) or one open socket stalls a
+// redeploy until SIGKILL
+async function shutdown(signal: string): Promise<void> {
+  console.log(`${signal} received, shutting down`);
+  try {
+    for (const client of wss.clients) {
+      client.close(1001, "Server shutting down");
+    }
+    await delay(SHUTDOWN_GRACE_MS);
+    for (const client of wss.clients) {
+      if (client.readyState !== client.CLOSED) {
+        client.terminate();
+      }
+    }
+    await apollo.stop();
+    httpServer.close(() => process.exit(0));
+  } catch (err) {
+    console.error("Error during shutdown:", err);
+    process.exit(1);
+  }
+}
+for (const signal of ["SIGTERM", "SIGINT"] as const) {
+  process.on(signal, () => void shutdown(signal));
+}
+
+httpServer.listen(PORT, () => {
+  console.log(
+    `Server listening on http://localhost:${PORT} — GraphQL at /graphql, WS upgrade at /ws`,
+  );
+});
