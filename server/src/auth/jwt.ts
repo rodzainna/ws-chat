@@ -26,12 +26,7 @@ let cachedExpiryMs: number | undefined;
 export function getAccessTokenExpiryMs(): number {
   if (cachedExpiryMs === undefined) {
     const raw = process.env.JWT_ACCESS_TOKEN_EXPIRY ?? "15m";
-    let parsed: number | undefined;
-    try {
-      parsed = ms(raw as ms.StringValue);
-    } catch {
-      parsed = undefined;
-    }
+    const parsed = raw === "" ? undefined : ms(raw as ms.StringValue);
     if (typeof parsed !== "number") {
       throw new Error(
         `JWT_ACCESS_TOKEN_EXPIRY is not a valid duration: "${raw}"`,

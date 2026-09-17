@@ -1,11 +1,12 @@
 import type { Response } from "express";
+import { isDevelopment } from "../env.js";
 import { getAccessTokenExpiryMs } from "./jwt.js";
 import type { IssuedRefreshToken } from "./refreshToken.js";
 
 const ACCESS_TOKEN_COOKIE = "access_token";
 const REFRESH_TOKEN_COOKIE = "refresh_token";
 
-const isSecureCookie = process.env.NODE_ENV !== "development";
+const isSecureCookie = !isDevelopment();
 
 export function setAuthCookies(
   res: Response,
@@ -14,18 +15,20 @@ export function setAuthCookies(
     refreshToken,
   }: { accessToken: string; refreshToken: IssuedRefreshToken },
 ): void {
-  res.cookie(ACCESS_TOKEN_COOKIE, accessToken, {
+  const cookieOptions = {
     httpOnly: true,
     secure: isSecureCookie,
-    sameSite: "lax",
+    // frontend and API share one origin so Lax works; splitting hosts would
+    // need None and reopen CSRF
+    sameSite: "lax" as const,
     path: "/",
+  };
+  res.cookie(ACCESS_TOKEN_COOKIE, accessToken, {
+    ...cookieOptions,
     maxAge: getAccessTokenExpiryMs(),
   });
   res.cookie(REFRESH_TOKEN_COOKIE, refreshToken.plaintextToken, {
-    httpOnly: true,
-    secure: isSecureCookie,
-    sameSite: "lax",
-    path: "/",
+    ...cookieOptions,
     maxAge: refreshToken.expiresAt.getTime() - Date.now(),
   });
 }

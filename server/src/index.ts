@@ -7,6 +7,7 @@ import { ApolloServerPluginDrainHttpServer } from "@apollo/server/plugin/drainHt
 import { expressMiddleware } from "@as-integrations/express5";
 import { WebSocketServer } from "ws";
 import { registerWsHandlers } from "./ws/handlers.js";
+import { isDevelopment } from "./env.js";
 import { typeDefs } from "./graphql/schema.js";
 import { resolvers } from "./graphql/resolvers.js";
 import type { GraphQLContext } from "./graphql/context.js";
@@ -48,7 +49,7 @@ registerWsHandlers(wss);
 const apollo = new ApolloServer<GraphQLContext>({
   typeDefs,
   resolvers,
-  introspection: process.env.NODE_ENV === "development",
+  introspection: isDevelopment(),
   plugins: [ApolloServerPluginDrainHttpServer({ httpServer })],
   // Apollo's own signal handlers re-send the signal and ran shutdown() twice;
   // ours below also drains the WS clients Apollo doesn't know about
