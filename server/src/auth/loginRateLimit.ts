@@ -2,6 +2,10 @@ import { getPositiveIntEnv } from "../env.js";
 
 // keyed by username AND ip: username-only lets anyone lock out an account,
 // ip-only lets one attacker spray many usernames. Only failures count.
+//
+// Attempts are reserved synchronously before any await, so concurrent
+// requests can't all read the same count; a successful login releases its
+// reservation.
 
 let cachedMaxAttempts: number | undefined;
 function getMaxAttempts(): number {
@@ -28,11 +32,7 @@ function isLimited(
   return bucket.count >= getMaxAttempts();
 }
 
-function recordFailure(
-  store: Map<string, Bucket>,
-  key: string,
-  now: number,
-): void {
+function increment(store: Map<string, Bucket>, key: string, now: number): void {
   const bucket = store.get(key);
   if (!bucket || now - bucket.windowStart > getWindowMs()) {
     store.set(key, { count: 1, windowStart: now });
@@ -41,21 +41,37 @@ function recordFailure(
   }
 }
 
+function release(store: Map<string, Bucket>, key: string, now: number): void {
+  const bucket = store.get(key);
+  if (!bucket || now - bucket.windowStart > getWindowMs()) return;
+  bucket.count = Math.max(0, bucket.count - 1);
+}
+
 const attemptsByUsername = new Map<string, Bucket>();
 const attemptsByIp = new Map<string, Bucket>();
 
-export function isLoginRateLimited(username: string, ip: string): boolean {
+export function reserveLoginAttempt(
+  username: string,
+  ip: string | undefined,
+): boolean {
   const now = Date.now();
-  return (
-    isLimited(attemptsByUsername, username.toLowerCase(), now) ||
-    isLimited(attemptsByIp, ip, now)
-  );
+  const usernameKey = username.toLowerCase();
+
+  if (isLimited(attemptsByUsername, usernameKey, now)) return true;
+  if (ip && isLimited(attemptsByIp, ip, now)) return true;
+
+  increment(attemptsByUsername, usernameKey, now);
+  if (ip) increment(attemptsByIp, ip, now);
+  return false;
 }
 
-export function recordFailedLoginAttempt(username: string, ip: string): void {
+export function releaseLoginAttempt(
+  username: string,
+  ip: string | undefined,
+): void {
   const now = Date.now();
-  recordFailure(attemptsByUsername, username.toLowerCase(), now);
-  recordFailure(attemptsByIp, ip, now);
+  release(attemptsByUsername, username.toLowerCase(), now);
+  if (ip) release(attemptsByIp, ip, now);
 }
 
 function sweepExpiredBuckets(store: Map<string, Bucket>, now: number): void {
