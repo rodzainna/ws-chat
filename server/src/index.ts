@@ -7,6 +7,8 @@ import { ApolloServerPluginDrainHttpServer } from "@apollo/server/plugin/drainHt
 import { expressMiddleware } from "@as-integrations/express5";
 import { WebSocketServer } from "ws";
 import { registerWsHandlers } from "./ws/handlers.js";
+import { isDevelopment } from "./env.js";
+import { disconnectPrisma } from "./db/prisma.js";
 import { typeDefs } from "./graphql/schema.js";
 import { resolvers } from "./graphql/resolvers.js";
 import type { GraphQLContext } from "./graphql/context.js";
@@ -48,7 +50,7 @@ registerWsHandlers(wss);
 const apollo = new ApolloServer<GraphQLContext>({
   typeDefs,
   resolvers,
-  introspection: process.env.NODE_ENV === "development",
+  introspection: isDevelopment(),
   plugins: [ApolloServerPluginDrainHttpServer({ httpServer })],
   // Apollo's own signal handlers re-send the signal and ran shutdown() twice;
   // ours below also drains the WS clients Apollo doesn't know about
@@ -86,6 +88,7 @@ async function shutdown(signal: string): Promise<void> {
       }
     }
     await apollo.stop();
+    await disconnectPrisma();
     httpServer.close(() => process.exit(0));
   } catch (err) {
     console.error("Error during shutdown:", err);

@@ -7,7 +7,7 @@ export default tseslint.config(
       "**/dist/**",
       "**/node_modules/**",
       "**/*.md",
-      "server/generated/**",
+      "server/src/generated/**",
     ],
   },
   {

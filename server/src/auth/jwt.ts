@@ -1,3 +1,4 @@
+import ms from "ms";
 import { SignJWT, jwtVerify, errors } from "jose";
 
 const ALGORITHM = "HS256";
@@ -21,22 +22,34 @@ function getSecret(): Uint8Array {
   return cachedSecret;
 }
 
-let cachedExpiry: string | undefined;
-function getAccessTokenExpiry(): string {
-  if (!cachedExpiry) {
+let cachedExpiryMs: number | undefined;
+export function getAccessTokenExpiryMs(): number {
+  if (cachedExpiryMs === undefined) {
     const raw = process.env.JWT_ACCESS_TOKEN_EXPIRY ?? "15m";
-    new SignJWT({}).setExpirationTime(raw);
-    cachedExpiry = raw;
+    // ms() reads a bare "15" as milliseconds; require a unit
+    if (/^-?\d+(\.\d+)?$/.test(raw)) {
+      throw new Error(
+        `JWT_ACCESS_TOKEN_EXPIRY must include a unit (e.g. "15m", "1h") — a bare number like "${raw}" is parsed as milliseconds, not what was likely intended`,
+      );
+    }
+    const parsed = raw === "" ? undefined : ms(raw as ms.StringValue);
+    if (typeof parsed !== "number" || parsed <= 0) {
+      throw new Error(
+        `JWT_ACCESS_TOKEN_EXPIRY is not a valid duration: "${raw}"`,
+      );
+    }
+    cachedExpiryMs = parsed;
   }
-  return cachedExpiry;
+  return cachedExpiryMs;
 }
 
 export function issueToken(userId: string): Promise<string> {
+  const expiresAt = new Date(Date.now() + getAccessTokenExpiryMs());
   return new SignJWT({})
     .setProtectedHeader({ alg: ALGORITHM })
     .setSubject(userId)
     .setIssuedAt()
-    .setExpirationTime(getAccessTokenExpiry())
+    .setExpirationTime(expiresAt)
     .sign(getSecret());
 }
 
