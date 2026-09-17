@@ -1,19 +1,17 @@
 import { DateTimeResolver } from "graphql-scalars";
 import { register } from "./resolvers/register.js";
 import { login } from "./resolvers/login.js";
-
-function notImplemented(): never {
-  throw new Error("Not implemented yet");
-}
+import { logout } from "./resolvers/logout.js";
+import { me } from "./resolvers/me.js";
 
 export const resolvers = {
   DateTime: DateTimeResolver,
   Query: {
-    me: notImplemented,
+    me,
   },
   Mutation: {
     register,
     login,
-    logout: notImplemented,
+    logout,
   },
 };

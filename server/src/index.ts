@@ -2,6 +2,7 @@ import "dotenv/config";
 import http from "node:http";
 import express from "express";
 import cors from "cors";
+import cookieParser from "cookie-parser";
 import { ApolloServer } from "@apollo/server";
 import { ApolloServerPluginDrainHttpServer } from "@apollo/server/plugin/drainHttpServer";
 import { expressMiddleware } from "@as-integrations/express5";
@@ -9,6 +10,8 @@ import { WebSocketServer } from "ws";
 import { registerWsHandlers } from "./ws/handlers.js";
 import { isDevelopment } from "./env.js";
 import { disconnectPrisma } from "./db/prisma.js";
+import { verifyToken } from "./auth/jwt.js";
+import { ACCESS_TOKEN_COOKIE } from "./auth/cookies.js";
 import { typeDefs } from "./graphql/schema.js";
 import { resolvers } from "./graphql/resolvers.js";
 import type { GraphQLContext } from "./graphql/context.js";
@@ -62,9 +65,15 @@ await apollo.start();
 app.use(
   "/graphql",
   cors({ origin: getCorsOrigin(), credentials: true }),
+  cookieParser(),
   express.json(),
   expressMiddleware(apollo, {
-    context: ({ req, res }) => Promise.resolve({ req, res }),
+    context: async ({ req, res }) => {
+      const token: unknown = req.cookies[ACCESS_TOKEN_COOKIE];
+      const userId =
+        typeof token === "string" ? await verifyToken(token) : null;
+      return { req, res, userId };
+    },
   }),
 );
 

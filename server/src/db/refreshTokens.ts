@@ -1,5 +1,5 @@
 import { getPrisma } from "./prisma.js";
-import type { IssuedRefreshToken } from "../auth/refreshToken.js";
+import { hashToken, type IssuedRefreshToken } from "../auth/refreshToken.js";
 
 export async function createRefreshTokenRecord(
   userId: string,
@@ -11,5 +11,14 @@ export async function createRefreshTokenRecord(
       tokenHash: refreshToken.tokenHash,
       expiresAt: refreshToken.expiresAt,
     },
+  });
+}
+
+export async function revokeRefreshToken(
+  plaintextToken: string,
+): Promise<void> {
+  await getPrisma().refreshToken.updateMany({
+    where: { tokenHash: hashToken(plaintextToken), revokedAt: null },
+    data: { revokedAt: new Date() },
   });
 }

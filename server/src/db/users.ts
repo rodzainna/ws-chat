@@ -7,6 +7,10 @@ export function findUserByUsername(username: string): Promise<User | null> {
   });
 }
 
+export function findUserById(id: string): Promise<User | null> {
+  return getPrisma().user.findUnique({ where: { id } });
+}
+
 export function createUser(input: {
   username: string;
   email: string;
