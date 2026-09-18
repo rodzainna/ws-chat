@@ -47,7 +47,10 @@ function renderContentWithMentions(
   mentionedUsernames: string[],
 ) {
   if (mentionedUsernames.length === 0) return content;
-  const pattern = new RegExp(`@(${mentionedUsernames.join("|")})\\b`, "gi");
+  const pattern = new RegExp(
+    `(?<![a-z0-9_])@(${mentionedUsernames.join("|")})\\b`,
+    "gi",
+  );
   return content.split(pattern).map((part, index) =>
     index % 2 === 1 ? (
       <span

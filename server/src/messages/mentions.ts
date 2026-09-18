@@ -1,4 +1,5 @@
-const MENTION_PATTERN = /@([a-z0-9_]{3,20})\b/gi;
+// username charset; the lookbehind skips emails like foo@johndoe.com
+const MENTION_PATTERN = /(?<![a-z0-9_])@([a-z0-9_]{3,20})\b/gi;
 
 export function extractMentionedUsernames(content: string): string[] {
   const usernames = new Set<string>();
