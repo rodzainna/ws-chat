@@ -1,0 +1,69 @@
+import { GraphQLError } from "graphql";
+import { requireActiveUser } from "../currentUser.js";
+import {
+  findActiveRoomById,
+  findMembership,
+  addMember,
+} from "../../db/rooms.js";
+import { Prisma, type Room } from "../../generated/prisma/client.js";
+import type { GraphQLContext } from "../context.js";
+import type { GraphQLUserError } from "../userErrors.js";
+
+type JoinRoomPayload = { room: Room | null; userErrors: GraphQLUserError[] };
+
+const ROOM_NOT_FOUND: GraphQLUserError = {
+  field: ["roomId"],
+  message: "Room not found",
+};
+
+const ALREADY_MEMBER: GraphQLUserError = {
+  field: ["roomId"],
+  message: "You are already a member of this room",
+};
+
+const PRIVATE_ROOM: GraphQLUserError = {
+  field: ["roomId"],
+  message: "This room is private — ask an owner or admin to add you",
+};
+
+export async function joinRoom(
+  _parent: unknown,
+  { roomId }: { roomId: string },
+  context: GraphQLContext,
+): Promise<JoinRoomPayload> {
+  const user = await requireActiveUser(context);
+
+  if (user.globalRole === "RESTRICTED") {
+    throw new GraphQLError("Restricted users cannot join rooms directly", {
+      extensions: { code: "FORBIDDEN" },
+    });
+  }
+
+  const room = await findActiveRoomById(roomId);
+  if (!room) {
+    return { room: null, userErrors: [ROOM_NOT_FOUND] };
+  }
+
+  if (room.isPrivate) {
+    return { room: null, userErrors: [PRIVATE_ROOM] };
+  }
+
+  const existing = await findMembership(roomId, user.id);
+  if (existing) {
+    return { room: null, userErrors: [ALREADY_MEMBER] };
+  }
+
+  try {
+    await addMember(roomId, user.id);
+  } catch (err) {
+    if (
+      err instanceof Prisma.PrismaClientKnownRequestError &&
+      err.code === "P2002"
+    ) {
+      return { room: null, userErrors: [ALREADY_MEMBER] };
+    }
+    throw err;
+  }
+
+  return { room, userErrors: [] };
+}

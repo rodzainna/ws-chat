@@ -17,5 +17,6 @@ export function getViolatedUniqueField(
   if (!index) return null;
   if (index.includes("username")) return "username";
   if (index.includes("email")) return "email";
+  if (index.includes("name")) return "name";
   return null;
 }
