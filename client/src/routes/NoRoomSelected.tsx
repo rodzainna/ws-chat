@@ -1,6 +1,6 @@
 import { Navigate } from "react-router";
 import { useQuery } from "@apollo/client";
-import { ROOMS_QUERY } from "@/components/RoomSidebar";
+import { ROOMS_QUERY } from "@/graphql/queries";
 
 type Room = { id: string; isMember: boolean };
 

@@ -1,7 +1,7 @@
 import { Link, useNavigate } from "react-router";
 import { gql, useMutation } from "@apollo/client";
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@/auth/AuthContext";
+import { useAuth } from "@/auth/useAuth";
 
 const LOGOUT_MUTATION = gql`
   mutation Logout {

@@ -1,13 +1,7 @@
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useState,
-  type ReactNode,
-} from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { gql, useApolloClient } from "@apollo/client";
 import { attemptRefresh } from "@/lib/apollo";
+import { AuthContext } from "./useAuth";
 
 export type GlobalRole = "ADMIN" | "USER" | "RESTRICTED";
 
@@ -31,14 +25,12 @@ const ME_QUERY = gql`
   }
 `;
 
-type AuthContextValue = {
+export type AuthContextValue = {
   user: CurrentUser | null;
   loading: boolean;
   refetchUser: () => Promise<void>;
   clearUser: () => void;
 };
-
-const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const client = useApolloClient();
@@ -88,12 +80,4 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       {children}
     </AuthContext.Provider>
   );
-}
-
-export function useAuth(): AuthContextValue {
-  const ctx = useContext(AuthContext);
-  if (!ctx) {
-    throw new Error("useAuth must be used within an AuthProvider");
-  }
-  return ctx;
 }

@@ -35,5 +35,11 @@ export default tseslint.config(
       ],
     },
   },
+  {
+    files: ["client/src/components/ui/**/*.tsx"],
+    rules: {
+      "react-refresh/only-export-components": "off",
+    },
+  },
   eslintConfigPrettier,
 );

@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { NavLink, useNavigate } from "react-router";
 import { gql, useMutation, useQuery } from "@apollo/client";
+import { ROOMS_QUERY } from "@/graphql/queries";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -14,7 +15,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { useAuth } from "@/auth/AuthContext";
+import { useAuth } from "@/auth/useAuth";
 
 type Room = {
   id: string;
@@ -28,17 +29,6 @@ type RoomMutationPayload = {
   room: { id: string } | null;
   userErrors: UserError[];
 };
-
-export const ROOMS_QUERY = gql`
-  query Rooms {
-    rooms {
-      id
-      name
-      isPrivate
-      isMember
-    }
-  }
-`;
 
 const CREATE_ROOM_MUTATION = gql`
   mutation CreateRoom($input: CreateRoomInput!) {

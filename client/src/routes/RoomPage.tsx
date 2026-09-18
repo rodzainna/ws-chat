@@ -6,9 +6,9 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { useAuth } from "@/auth/AuthContext";
+import { useAuth } from "@/auth/useAuth";
 import { useChatSocket, type WsChatMessage } from "@/ws/useChatSocket";
-import { ROOMS_QUERY } from "@/components/RoomSidebar";
+import { ROOMS_QUERY } from "@/graphql/queries";
 
 type Room = { id: string; name: string; isPrivate: boolean };
 

@@ -1,15 +1,10 @@
-import { createBrowserRouter, useParams } from "react-router";
+import { createBrowserRouter } from "react-router";
 import { RootLayout } from "@/routes/RootLayout";
 import { ProtectedRoute } from "@/auth/ProtectedRoute";
 import { LoginPage } from "@/routes/LoginPage";
 import { ChatLayout } from "@/routes/ChatLayout";
 import { NoRoomSelected } from "@/routes/NoRoomSelected";
-import { RoomPage } from "@/routes/RoomPage";
-
-function RoomRoute() {
-  const { roomId } = useParams<{ roomId: string }>();
-  return <RoomPage key={roomId} />;
-}
+import { RoomRoute } from "@/routes/RoomRoute";
 
 export const router = createBrowserRouter([
   {
