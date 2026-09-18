@@ -7,6 +7,7 @@ import { createRoom } from "./resolvers/createRoom.js";
 import { joinRoom } from "./resolvers/joinRoom.js";
 import { addRoomMember } from "./resolvers/addRoomMember.js";
 import { messages } from "./resolvers/messages.js";
+import { rooms } from "./resolvers/rooms.js";
 import { me } from "./resolvers/me.js";
 import type { Message } from "../generated/prisma/client.js";
 
@@ -14,6 +15,7 @@ export const resolvers = {
   DateTime: DateTimeResolver,
   Query: {
     me,
+    rooms,
     messages,
   },
   Mutation: {
