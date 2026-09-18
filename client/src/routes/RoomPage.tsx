@@ -1,0 +1,246 @@
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useParams } from "react-router";
+import { gql, useQuery } from "@apollo/client";
+import { AppHeader } from "@/components/AppHeader";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { useAuth } from "@/auth/AuthContext";
+import { useChatSocket, type WsChatMessage } from "@/ws/useChatSocket";
+
+type ChatMessage = {
+  id: string;
+  userId: string;
+  content: string;
+  createdAt: string;
+  editedAt: string | null;
+  deleted: boolean;
+};
+
+const ROOM_MESSAGES_QUERY = gql`
+  query RoomMessages($roomId: ID!) {
+    messages(roomId: $roomId, first: 50) {
+      edges {
+        node {
+          id
+          userId
+          content
+          createdAt
+          editedAt
+          deletedAt
+        }
+      }
+    }
+  }
+`;
+
+export function RoomPage() {
+  const { roomId } = useParams<{ roomId: string }>();
+  const { user } = useAuth();
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [historyLoaded, setHistoryLoaded] = useState(false);
+  const [draft, setDraft] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState("");
+  const [socketError, setSocketError] = useState<string | null>(null);
+  const bottomRef = useRef<HTMLDivElement>(null);
+
+  const { data, loading } = useQuery<{
+    messages: {
+      edges: {
+        node: {
+          id: string;
+          userId: string;
+          content: string;
+          createdAt: string;
+          editedAt: string | null;
+          deletedAt: string | null;
+        };
+      }[];
+    };
+  }>(ROOM_MESSAGES_QUERY, {
+    variables: { roomId },
+    fetchPolicy: "network-only",
+    skip: !roomId,
+  });
+
+  useEffect(() => {
+    if (!data || historyLoaded) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setMessages(
+      data.messages.edges.map(({ node }) => ({
+        id: node.id,
+        userId: node.userId,
+        content: node.content,
+        createdAt: node.createdAt,
+        editedAt: node.editedAt,
+        deleted: node.deletedAt !== null,
+      })),
+    );
+    setHistoryLoaded(true);
+  }, [data, historyLoaded]);
+
+  const { sendMessage, editMessage, deleteMessage } = useChatSocket(
+    roomId ?? "",
+    {
+      onCreated: (message: WsChatMessage) => {
+        setMessages((prev) =>
+          prev.some((m) => m.id === message.id)
+            ? prev
+            : [...prev, { ...message, deleted: false }],
+        );
+      },
+      onEdited: (messageId, content, editedAt) => {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === messageId ? { ...m, content, editedAt } : m,
+          ),
+        );
+      },
+      onDeleted: (messageId) => {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === messageId
+              ? { ...m, content: "[message deleted]", deleted: true }
+              : m,
+          ),
+        );
+      },
+      onError: (_code, message) => setSocketError(message),
+    },
+  );
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages.length]);
+
+  const orderedMessages = useMemo(
+    () => [...messages].sort((a, b) => a.createdAt.localeCompare(b.createdAt)),
+    [messages],
+  );
+
+  function handleSend(event: FormEvent) {
+    event.preventDefault();
+    if (!draft.trim()) return;
+    sendMessage(draft);
+    setDraft("");
+  }
+
+  function startEdit(message: ChatMessage) {
+    setEditingId(message.id);
+    setEditDraft(message.content);
+  }
+
+  function submitEdit(event: FormEvent) {
+    event.preventDefault();
+    if (!editingId || !editDraft.trim()) return;
+    editMessage(editingId, editDraft);
+    setEditingId(null);
+  }
+
+  if (!roomId) return null;
+
+  return (
+    <div className="flex h-svh flex-col">
+      <AppHeader />
+      <ScrollArea className="flex-1 px-4">
+        <div className="mx-auto max-w-2xl space-y-3 py-4">
+          {loading && !historyLoaded && (
+            <p className="text-muted-foreground">Loading messages…</p>
+          )}
+          {orderedMessages.length === 0 && historyLoaded && (
+            <p className="text-muted-foreground">
+              No messages yet — say hello.
+            </p>
+          )}
+          {orderedMessages.map((message) => {
+            const isOwn = message.userId === user?.id;
+            const isEditing = editingId === message.id;
+            return (
+              <div key={message.id} className="group text-sm">
+                <div className="flex items-baseline gap-2">
+                  <span className="font-medium">
+                    {isOwn ? "You" : message.userId.slice(0, 8)}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {new Date(message.createdAt).toLocaleTimeString()}
+                  </span>
+                  {message.editedAt && !message.deleted && (
+                    <span className="text-xs text-muted-foreground">
+                      (edited)
+                    </span>
+                  )}
+                </div>
+
+                {isEditing ? (
+                  <form onSubmit={submitEdit} className="mt-1 flex gap-2">
+                    <Input
+                      autoFocus
+                      value={editDraft}
+                      onChange={(event) => setEditDraft(event.target.value)}
+                    />
+                    <Button size="sm" type="submit">
+                      Save
+                    </Button>
+                    <Button
+                      size="sm"
+                      type="button"
+                      variant="ghost"
+                      onClick={() => setEditingId(null)}
+                    >
+                      Cancel
+                    </Button>
+                  </form>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <p
+                      className={
+                        message.deleted ? "italic text-muted-foreground" : ""
+                      }
+                    >
+                      {message.content}
+                    </p>
+                    {isOwn && !message.deleted && (
+                      <span className="hidden gap-1 group-hover:flex">
+                        <button
+                          type="button"
+                          className="text-xs text-muted-foreground hover:underline"
+                          onClick={() => startEdit(message)}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          className="text-xs text-muted-foreground hover:underline"
+                          onClick={() => deleteMessage(message.id)}
+                        >
+                          Delete
+                        </button>
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+          <div ref={bottomRef} />
+        </div>
+      </ScrollArea>
+
+      {socketError && (
+        <p className="px-4 text-sm text-destructive">{socketError}</p>
+      )}
+
+      <form onSubmit={handleSend} className="flex gap-2 border-t p-4">
+        <Input
+          value={draft}
+          onChange={(event) => setDraft(event.target.value)}
+          placeholder="Message…"
+          maxLength={2000}
+          className="flex-1"
+        />
+        <Button type="submit">Send</Button>
+      </form>
+    </div>
+  );
+}
