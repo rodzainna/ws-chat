@@ -7,6 +7,7 @@ import { parseCookie } from "cookie";
 import { ApolloServer } from "@apollo/server";
 import { ApolloServerPluginDrainHttpServer } from "@apollo/server/plugin/drainHttpServer";
 import { expressMiddleware } from "@as-integrations/express5";
+import depthLimit from "graphql-depth-limit";
 import { WebSocketServer } from "ws";
 import { registerWsHandlers } from "./ws/handlers.js";
 import type { AuthenticatedRequest } from "./ws/types.js";
@@ -22,6 +23,7 @@ import type { GraphQLContext } from "./graphql/context.js";
 const PORT = Number(process.env.PORT ?? 8080);
 const MAX_WS_PAYLOAD_BYTES = 16 * 1024;
 const SHUTDOWN_GRACE_MS = 3000;
+const MAX_QUERY_DEPTH = 10;
 
 let cachedCorsOrigin: string | undefined;
 function getCorsOrigin(): string {
@@ -86,6 +88,7 @@ const apollo = new ApolloServer<GraphQLContext>({
   typeDefs,
   resolvers,
   introspection: isDevelopment(),
+  validationRules: [depthLimit(MAX_QUERY_DEPTH)],
   plugins: [ApolloServerPluginDrainHttpServer({ httpServer })],
   // Apollo's own signal handlers re-send the signal and ran shutdown() twice;
   // ours below also drains the WS clients Apollo doesn't know about
