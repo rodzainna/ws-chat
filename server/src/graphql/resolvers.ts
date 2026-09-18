@@ -31,5 +31,7 @@ export const resolvers = {
     content: (parent: MessageWithAuthor) =>
       parent.deletedAt ? "[message deleted]" : parent.content,
     username: (parent: MessageWithAuthor) => parent.user.username,
+    mentionedUsernames: (parent: MessageWithAuthor) =>
+      parent.mentions.map((m) => m.user.username),
   },
 };

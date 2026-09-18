@@ -36,6 +36,7 @@ export const typeDefs = `#graphql
     createdAt: DateTime!
     editedAt: DateTime
     deletedAt: DateTime
+    mentionedUsernames: [String!]!
   }
 
   type MessageEdge {

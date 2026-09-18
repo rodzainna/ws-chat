@@ -16,7 +16,9 @@ import {
   softDeleteMessage,
   type MessageWithAuthor,
 } from "../db/messages.js";
+import { findUsersByUsernames } from "../db/users.js";
 import { validateMessageContent } from "../messages/validation.js";
+import { extractMentionedUsernames } from "../messages/mentions.js";
 import type { Message } from "../generated/prisma/client.js";
 
 function send(socket: WebSocket, message: ServerMessage): void {
@@ -32,6 +34,7 @@ function toChatMessage(message: MessageWithAuthor): ChatMessage {
     content: message.content,
     createdAt: message.createdAt.toISOString(),
     editedAt: message.editedAt ? message.editedAt.toISOString() : null,
+    mentionedUsernames: message.mentions.map((m) => m.user.username),
   };
 }
 
@@ -128,10 +131,18 @@ async function handleMessage(
         return;
       }
 
+      const trimmedContent = message.content.trim();
+      const candidateUsernames = extractMentionedUsernames(trimmedContent);
+      const mentionedUsers =
+        candidateUsernames.length > 0
+          ? await findUsersByUsernames(candidateUsernames)
+          : [];
+
       const created = await createMessage({
         roomId: message.roomId,
         userId,
-        content: message.content.trim(),
+        content: trimmedContent,
+        mentionedUserIds: mentionedUsers.map((u) => u.id),
       });
       registry.broadcast(
         message.roomId,
