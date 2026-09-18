@@ -8,7 +8,7 @@ import {
   type ClientMessage,
   type ServerMessage,
 } from "./messages.js";
-import { canAccessRoom } from "../db/rooms.js";
+import { canAccessRoom, findRoomMembersByUsernames } from "../db/rooms.js";
 import {
   createMessage,
   findMessageById,
@@ -17,6 +17,7 @@ import {
   type MessageWithAuthor,
 } from "../db/messages.js";
 import { validateMessageContent } from "../messages/validation.js";
+import { extractMentionedUsernames } from "../messages/mentions.js";
 import type { Message } from "../generated/prisma/client.js";
 
 function send(socket: WebSocket, message: ServerMessage): void {
@@ -32,6 +33,7 @@ function toChatMessage(message: MessageWithAuthor): ChatMessage {
     content: message.content,
     createdAt: message.createdAt.toISOString(),
     editedAt: message.editedAt ? message.editedAt.toISOString() : null,
+    mentionedUsernames: message.mentions.map((m) => m.user.username),
   };
 }
 
@@ -128,10 +130,18 @@ async function handleMessage(
         return;
       }
 
+      const trimmedContent = message.content.trim();
+      const candidateUsernames = extractMentionedUsernames(trimmedContent);
+      const mentionedUsers =
+        candidateUsernames.length > 0
+          ? await findRoomMembersByUsernames(message.roomId, candidateUsernames)
+          : [];
+
       const created = await createMessage({
         roomId: message.roomId,
         userId,
-        content: message.content.trim(),
+        content: trimmedContent,
+        mentionedUserIds: mentionedUsers.map((u) => u.id),
       });
       registry.broadcast(
         message.roomId,
@@ -241,6 +251,8 @@ export function registerWsHandlers(wss: WebSocketServer): void {
 
     console.log(`client connected (user ${userId})`);
 
+    // one socket's frames run strictly in order, or a send right after a
+    // join could race the join's async access check. Sockets stay concurrent.
     let processingQueue: Promise<void> = Promise.resolve();
     socket.on("message", (data: Buffer) => {
       const raw = data.toString();

@@ -13,6 +13,7 @@ export type ChatMessage = {
   content: string;
   createdAt: string;
   editedAt: string | null;
+  mentionedUsernames: string[];
 };
 
 export type ServerMessage =

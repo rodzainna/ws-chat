@@ -1,13 +1,7 @@
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useState,
-  type ReactNode,
-} from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { gql, useApolloClient } from "@apollo/client";
 import { attemptRefresh } from "@/lib/apollo";
+import { AuthContext } from "./useAuth";
 
 export type GlobalRole = "ADMIN" | "USER" | "RESTRICTED";
 
@@ -31,14 +25,12 @@ const ME_QUERY = gql`
   }
 `;
 
-type AuthContextValue = {
+export type AuthContextValue = {
   user: CurrentUser | null;
   loading: boolean;
   refetchUser: () => Promise<void>;
   clearUser: () => void;
 };
-
-const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const client = useApolloClient();
@@ -46,6 +38,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const refetchUser = useCallback(async () => {
+    // the cache isn't keyed by user, so a new login mustn't see the old one's
     await client.clearStore();
     const { data } = await client.query<{ me: CurrentUser | null }>({
       query: ME_QUERY,
@@ -56,6 +49,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    // a null /me usually just means the access token expired. me returns
+    // null rather than throwing, so the error link won't refresh; do it here.
     const refreshed = await attemptRefresh();
     if (!refreshed) {
       setUser(null);
@@ -85,12 +80,4 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       {children}
     </AuthContext.Provider>
   );
-}
-
-export function useAuth(): AuthContextValue {
-  const ctx = useContext(AuthContext);
-  if (!ctx) {
-    throw new Error("useAuth must be used within an AuthProvider");
-  }
-  return ctx;
 }
