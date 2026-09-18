@@ -48,6 +48,11 @@ export const typeDefs = `#graphql
     success: Boolean!
   }
 
+  type RefreshPayload {
+    user: User
+    userErrors: [UserError!]!
+  }
+
   type Query {
     me: User
   }
@@ -56,5 +61,6 @@ export const typeDefs = `#graphql
     register(input: RegisterInput!): RegisterPayload!
     login(input: LoginInput!): LoginPayload!
     logout: LogoutPayload!
+    refresh: RefreshPayload!
   }
 `;
