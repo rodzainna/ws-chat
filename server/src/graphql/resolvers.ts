@@ -6,6 +6,7 @@ import { refresh } from "./resolvers/refresh.js";
 import { createRoom } from "./resolvers/createRoom.js";
 import { joinRoom } from "./resolvers/joinRoom.js";
 import { addRoomMember } from "./resolvers/addRoomMember.js";
+import { setGlobalRole } from "./resolvers/setGlobalRole.js";
 import { messages } from "./resolvers/messages.js";
 import { rooms } from "./resolvers/rooms.js";
 import { me } from "./resolvers/me.js";
@@ -26,6 +27,7 @@ export const resolvers = {
     createRoom,
     joinRoom,
     addRoomMember,
+    setGlobalRole,
   },
   Message: {
     content: (parent: MessageWithAuthor) =>

@@ -109,6 +109,11 @@ export const typeDefs = `#graphql
     userErrors: [UserError!]!
   }
 
+  type SetGlobalRolePayload {
+    user: User
+    userErrors: [UserError!]!
+  }
+
   type Query {
     me: User
     rooms: [Room!]!
@@ -123,5 +128,6 @@ export const typeDefs = `#graphql
     createRoom(input: CreateRoomInput!): CreateRoomPayload!
     joinRoom(roomId: ID!): JoinRoomPayload!
     addRoomMember(roomId: ID!, username: String!): AddRoomMemberPayload!
+    setGlobalRole(userId: ID!, role: GlobalRole!): SetGlobalRolePayload!
   }
 `;

@@ -1,5 +1,5 @@
 import { getPrisma } from "./prisma.js";
-import type { User } from "../generated/prisma/client.js";
+import type { GlobalRole, User } from "../generated/prisma/client.js";
 
 export function findUserByUsername(username: string): Promise<User | null> {
   return getPrisma().user.findUnique({
@@ -27,5 +27,21 @@ export function createUser(input: {
       email: input.email.toLowerCase(),
       passwordHash: input.passwordHash,
     },
+  });
+}
+
+export function countActiveAdmins(): Promise<number> {
+  return getPrisma().user.count({
+    where: { globalRole: "ADMIN", isActive: true },
+  });
+}
+
+export function updateGlobalRole(
+  userId: string,
+  role: GlobalRole,
+): Promise<User> {
+  return getPrisma().user.update({
+    where: { id: userId },
+    data: { globalRole: role },
   });
 }
