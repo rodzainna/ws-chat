@@ -26,6 +26,31 @@ export const typeDefs = `#graphql
     createdAt: DateTime!
   }
 
+  type Message {
+    id: ID!
+    roomId: ID!
+    userId: ID!
+    content: String!
+    createdAt: DateTime!
+    editedAt: DateTime
+    deletedAt: DateTime
+  }
+
+  type MessageEdge {
+    cursor: String!
+    node: Message!
+  }
+
+  type PageInfo {
+    hasNextPage: Boolean!
+    endCursor: String
+  }
+
+  type MessageConnection {
+    edges: [MessageEdge!]!
+    pageInfo: PageInfo!
+  }
+
   type UserError {
     field: [String!]
     message: String!
@@ -83,6 +108,7 @@ export const typeDefs = `#graphql
 
   type Query {
     me: User
+    messages(roomId: ID!, first: Int, after: String): MessageConnection!
   }
 
   type Mutation {

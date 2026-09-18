@@ -13,6 +13,19 @@ export function findMessageById(id: string): Promise<Message | null> {
   return getPrisma().message.findUnique({ where: { id } });
 }
 
+export function findMessagesPage(input: {
+  roomId: string;
+  take: number;
+  afterId?: string;
+}): Promise<Message[]> {
+  return getPrisma().message.findMany({
+    where: { roomId: input.roomId },
+    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+    take: input.take,
+    ...(input.afterId ? { cursor: { id: input.afterId }, skip: 1 } : {}),
+  });
+}
+
 export function editMessage(id: string, content: string): Promise<Message> {
   return getPrisma().message.update({
     where: { id },
