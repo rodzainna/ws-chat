@@ -1,0 +1,58 @@
+import { GraphQLError } from "graphql";
+import { requireActiveUser } from "../currentUser.js";
+import { validateRoomName } from "../../rooms/validation.js";
+import { createRoomWithOwner } from "../../db/rooms.js";
+import {
+  getViolatedUniqueField,
+  isUniqueConstraintViolation,
+} from "../../db/prismaErrors.js";
+import type { GraphQLContext } from "../context.js";
+import { toUserError } from "../userErrors.js";
+import type { RoomMutationPayload } from "./roomErrors.js";
+
+type CreateRoomInput = { name: string; isPrivate: boolean };
+
+export async function createRoom(
+  _parent: unknown,
+  { input }: { input: CreateRoomInput },
+  context: GraphQLContext,
+): Promise<RoomMutationPayload> {
+  const user = await requireActiveUser(context);
+
+  if (user.globalRole === "RESTRICTED") {
+    throw new GraphQLError("Restricted users cannot create rooms", {
+      extensions: { code: "FORBIDDEN" },
+    });
+  }
+
+  const nameError = validateRoomName(input.name);
+  if (nameError) {
+    return { room: null, userErrors: [toUserError(nameError)] };
+  }
+
+  try {
+    const room = await createRoomWithOwner({
+      name: input.name.trim(),
+      isPrivate: input.isPrivate,
+      creatorId: user.id,
+    });
+    return { room, userErrors: [] };
+  } catch (err) {
+    if (isUniqueConstraintViolation(err)) {
+      const field = getViolatedUniqueField(err);
+      return {
+        room: null,
+        userErrors: [
+          {
+            field: field ? [field] : [],
+            message:
+              field === "name"
+                ? "Room name is already taken"
+                : "That information is already in use",
+          },
+        ],
+      };
+    }
+    throw err;
+  }
+}

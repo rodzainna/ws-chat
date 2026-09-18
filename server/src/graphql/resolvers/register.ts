@@ -7,8 +7,11 @@ import {
   type FieldError,
 } from "../../auth/validation.js";
 import { createUser } from "../../db/users.js";
-import { getViolatedUniqueField } from "../../db/prismaErrors.js";
-import { Prisma, type User } from "../../generated/prisma/client.js";
+import {
+  getViolatedUniqueField,
+  isUniqueConstraintViolation,
+} from "../../db/prismaErrors.js";
+import type { User } from "../../generated/prisma/client.js";
 import type { GraphQLContext } from "../context.js";
 import { toUserError, type GraphQLUserError } from "../userErrors.js";
 
@@ -45,10 +48,7 @@ export async function register(
       passwordHash,
     });
   } catch (err) {
-    if (
-      err instanceof Prisma.PrismaClientKnownRequestError &&
-      err.code === "P2002"
-    ) {
+    if (isUniqueConstraintViolation(err)) {
       const field = getViolatedUniqueField(err);
       const message = field ? DUPLICATE_MESSAGES[field] : undefined;
       return {

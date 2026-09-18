@@ -18,6 +18,39 @@ export const typeDefs = `#graphql
     RESTRICTED
   }
 
+  type Room {
+    id: ID!
+    name: String!
+    isPrivate: Boolean!
+    createdBy: ID!
+    createdAt: DateTime!
+  }
+
+  type Message {
+    id: ID!
+    roomId: ID!
+    userId: ID!
+    content: String!
+    createdAt: DateTime!
+    editedAt: DateTime
+    deletedAt: DateTime
+  }
+
+  type MessageEdge {
+    cursor: String!
+    node: Message!
+  }
+
+  type PageInfo {
+    hasNextPage: Boolean!
+    endCursor: String
+  }
+
+  type MessageConnection {
+    edges: [MessageEdge!]!
+    pageInfo: PageInfo!
+  }
+
   type UserError {
     field: [String!]
     message: String!
@@ -48,13 +81,43 @@ export const typeDefs = `#graphql
     success: Boolean!
   }
 
+  type RefreshPayload {
+    user: User
+    userErrors: [UserError!]!
+  }
+
+  input CreateRoomInput {
+    name: String!
+    isPrivate: Boolean!
+  }
+
+  type CreateRoomPayload {
+    room: Room
+    userErrors: [UserError!]!
+  }
+
+  type JoinRoomPayload {
+    room: Room
+    userErrors: [UserError!]!
+  }
+
+  type AddRoomMemberPayload {
+    room: Room
+    userErrors: [UserError!]!
+  }
+
   type Query {
     me: User
+    messages(roomId: ID!, first: Int, after: String): MessageConnection!
   }
 
   type Mutation {
     register(input: RegisterInput!): RegisterPayload!
     login(input: LoginInput!): LoginPayload!
     logout: LogoutPayload!
+    refresh: RefreshPayload!
+    createRoom(input: CreateRoomInput!): CreateRoomPayload!
+    joinRoom(roomId: ID!): JoinRoomPayload!
+    addRoomMember(roomId: ID!, username: String!): AddRoomMemberPayload!
   }
 `;

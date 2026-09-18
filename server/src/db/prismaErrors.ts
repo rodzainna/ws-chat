@@ -1,5 +1,13 @@
 import { Prisma } from "../generated/prisma/client.js";
 
+export function isUniqueConstraintViolation(
+  err: unknown,
+): err is Prisma.PrismaClientKnownRequestError {
+  return (
+    err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002"
+  );
+}
+
 // with @prisma/adapter-pg, P2002 has no meta.target; the Postgres constraint
 // name (e.g. "users_username_key") is under meta.driverAdapterError
 export function getViolatedUniqueField(
@@ -17,5 +25,6 @@ export function getViolatedUniqueField(
   if (!index) return null;
   if (index.includes("username")) return "username";
   if (index.includes("email")) return "email";
+  if (index.includes("name")) return "name";
   return null;
 }
