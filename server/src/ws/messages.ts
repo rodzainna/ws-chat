@@ -1,18 +1,29 @@
 export type ClientMessage =
   | { type: "join"; roomId: string }
   | { type: "leave"; roomId: string }
-  | { type: "send"; roomId: string; content: string };
+  | { type: "send"; roomId: string; content: string }
+  | { type: "edit"; roomId: string; messageId: string; content: string }
+  | { type: "delete"; roomId: string; messageId: string };
 
 export type ChatMessage = {
   id: string;
   roomId: string;
+  userId: string;
   content: string;
   createdAt: string;
+  editedAt: string | null;
 };
 
 export type ServerMessage =
   | { type: "joined"; roomId: string }
   | { type: "message_created"; message: ChatMessage }
+  | {
+      type: "message_edited";
+      messageId: string;
+      content: string;
+      editedAt: string;
+    }
+  | { type: "message_deleted"; messageId: string }
   | { type: "error"; code: string; message: string };
 
 type ParseResult =
@@ -66,6 +77,32 @@ export function parseClientMessage(raw: string): ParseResult {
         return invalidFrame('"send" requires string content');
       }
       return { ok: true, message: { type: "send", roomId, content } };
+    }
+    case "edit": {
+      const { roomId, messageId, content } = parsed as Record<string, unknown>;
+      if (!isNonEmptyString(roomId)) {
+        return invalidFrame('"edit" requires a non-empty roomId');
+      }
+      if (!isNonEmptyString(messageId)) {
+        return invalidFrame('"edit" requires a non-empty messageId');
+      }
+      if (typeof content !== "string") {
+        return invalidFrame('"edit" requires string content');
+      }
+      return {
+        ok: true,
+        message: { type: "edit", roomId, messageId, content },
+      };
+    }
+    case "delete": {
+      const { roomId, messageId } = parsed as Record<string, unknown>;
+      if (!isNonEmptyString(roomId)) {
+        return invalidFrame('"delete" requires a non-empty roomId');
+      }
+      if (!isNonEmptyString(messageId)) {
+        return invalidFrame('"delete" requires a non-empty messageId');
+      }
+      return { ok: true, message: { type: "delete", roomId, messageId } };
     }
     default:
       return {
