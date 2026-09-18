@@ -7,6 +7,7 @@ import {
   type ReactNode,
 } from "react";
 import { gql, useApolloClient } from "@apollo/client";
+import { attemptRefresh } from "@/lib/apollo";
 
 export type GlobalRole = "ADMIN" | "USER" | "RESTRICTED";
 
@@ -50,7 +51,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       query: ME_QUERY,
       fetchPolicy: "network-only",
     });
-    setUser(data.me);
+    if (data.me) {
+      setUser(data.me);
+      return;
+    }
+
+    const refreshed = await attemptRefresh();
+    if (!refreshed) {
+      setUser(null);
+      return;
+    }
+    const { data: afterRefresh } = await client.query<{
+      me: CurrentUser | null;
+    }>({
+      query: ME_QUERY,
+      fetchPolicy: "network-only",
+    });
+    setUser(afterRefresh.me);
   }, [client]);
 
   useEffect(() => {

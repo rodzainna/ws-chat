@@ -29,7 +29,7 @@ const REFRESH_MUTATION = gql`
 // concurrent 401s share one in-flight refresh
 let refreshPromise: Promise<boolean> | null = null;
 
-function attemptRefresh(): Promise<boolean> {
+export function attemptRefresh(): Promise<boolean> {
   if (!refreshPromise) {
     refreshPromise = apolloClient
       .mutate<{
