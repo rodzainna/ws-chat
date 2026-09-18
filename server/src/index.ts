@@ -10,6 +10,7 @@ import { expressMiddleware } from "@as-integrations/express5";
 import depthLimit from "graphql-depth-limit";
 import { WebSocketServer } from "ws";
 import { registerWsHandlers } from "./ws/handlers.js";
+import { RoomRegistry } from "./ws/roomRegistry.js";
 import type { AuthenticatedRequest } from "./ws/types.js";
 import { isDevelopment } from "./env.js";
 import { disconnectPrisma } from "./db/prisma.js";
@@ -82,7 +83,8 @@ const wss = new WebSocketServer({
       });
   },
 });
-registerWsHandlers(wss);
+const roomRegistry = new RoomRegistry();
+registerWsHandlers(wss, roomRegistry);
 
 const apollo = new ApolloServer<GraphQLContext>({
   typeDefs,
@@ -128,7 +130,7 @@ app.use(
           console.error("Unexpected error verifying access token:", err);
         }
       }
-      return { req, res, userId };
+      return { req, res, userId, roomRegistry };
     },
   }),
 );

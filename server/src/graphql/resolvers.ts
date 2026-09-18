@@ -6,6 +6,7 @@ import { refresh } from "./resolvers/refresh.js";
 import { createRoom } from "./resolvers/createRoom.js";
 import { joinRoom } from "./resolvers/joinRoom.js";
 import { addRoomMember } from "./resolvers/addRoomMember.js";
+import { deleteRoom } from "./resolvers/deleteRoom.js";
 import { setGlobalRole } from "./resolvers/setGlobalRole.js";
 import { deactivateUser } from "./resolvers/deactivateUser.js";
 import { messages } from "./resolvers/messages.js";
@@ -28,6 +29,7 @@ export const resolvers = {
     createRoom,
     joinRoom,
     addRoomMember,
+    deleteRoom,
     setGlobalRole,
     deactivateUser,
   },
