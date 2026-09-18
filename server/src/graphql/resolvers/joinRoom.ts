@@ -6,16 +6,9 @@ import {
   addMember,
 } from "../../db/rooms.js";
 import { isUniqueConstraintViolation } from "../../db/prismaErrors.js";
-import type { Room } from "../../generated/prisma/client.js";
 import type { GraphQLContext } from "../context.js";
 import type { GraphQLUserError } from "../userErrors.js";
-
-type JoinRoomPayload = { room: Room | null; userErrors: GraphQLUserError[] };
-
-const ROOM_NOT_FOUND: GraphQLUserError = {
-  field: ["roomId"],
-  message: "Room not found",
-};
+import { ROOM_NOT_FOUND, type RoomMutationPayload } from "./roomErrors.js";
 
 const ALREADY_MEMBER: GraphQLUserError = {
   field: ["roomId"],
@@ -31,7 +24,7 @@ export async function joinRoom(
   _parent: unknown,
   { roomId }: { roomId: string },
   context: GraphQLContext,
-): Promise<JoinRoomPayload> {
+): Promise<RoomMutationPayload> {
   const user = await requireActiveUser(context);
 
   if (user.globalRole === "RESTRICTED") {

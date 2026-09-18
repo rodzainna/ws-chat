@@ -7,19 +7,9 @@ import {
 } from "../../db/rooms.js";
 import { findUserByUsername } from "../../db/users.js";
 import { isUniqueConstraintViolation } from "../../db/prismaErrors.js";
-import type { Room } from "../../generated/prisma/client.js";
 import type { GraphQLContext } from "../context.js";
 import type { GraphQLUserError } from "../userErrors.js";
-
-type AddRoomMemberPayload = {
-  room: Room | null;
-  userErrors: GraphQLUserError[];
-};
-
-const ROOM_NOT_FOUND: GraphQLUserError = {
-  field: ["roomId"],
-  message: "Room not found",
-};
+import { ROOM_NOT_FOUND, type RoomMutationPayload } from "./roomErrors.js";
 
 const USER_NOT_FOUND: GraphQLUserError = {
   field: ["username"],
@@ -35,10 +25,13 @@ export async function addRoomMember(
   _parent: unknown,
   { roomId, username }: { roomId: string; username: string },
   context: GraphQLContext,
-): Promise<AddRoomMemberPayload> {
+): Promise<RoomMutationPayload> {
   const user = await requireActiveUser(context);
 
-  const room = await findActiveRoomById(roomId);
+  const [room, targetUser] = await Promise.all([
+    findActiveRoomById(roomId),
+    findUserByUsername(username),
+  ]);
   if (!room) {
     return { room: null, userErrors: [ROOM_NOT_FOUND] };
   }
@@ -51,7 +44,6 @@ export async function addRoomMember(
     });
   }
 
-  const targetUser = await findUserByUsername(username);
   if (!targetUser || !targetUser.isActive) {
     return { room: null, userErrors: [USER_NOT_FOUND] };
   }

@@ -6,21 +6,17 @@ import {
   getViolatedUniqueField,
   isUniqueConstraintViolation,
 } from "../../db/prismaErrors.js";
-import type { Room } from "../../generated/prisma/client.js";
 import type { GraphQLContext } from "../context.js";
-import { toUserError, type GraphQLUserError } from "../userErrors.js";
+import { toUserError } from "../userErrors.js";
+import type { RoomMutationPayload } from "./roomErrors.js";
 
 type CreateRoomInput = { name: string; isPrivate: boolean };
-type CreateRoomPayload = {
-  room: Room | null;
-  userErrors: GraphQLUserError[];
-};
 
 export async function createRoom(
   _parent: unknown,
   { input }: { input: CreateRoomInput },
   context: GraphQLContext,
-): Promise<CreateRoomPayload> {
+): Promise<RoomMutationPayload> {
   const user = await requireActiveUser(context);
 
   if (user.globalRole === "RESTRICTED") {
