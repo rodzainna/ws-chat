@@ -32,14 +32,27 @@ export function findRefreshTokenByPlaintext(
   });
 }
 
-export async function claimRefreshTokenForRotation(
-  id: string,
+export async function rotateRefreshToken(
+  oldTokenId: string,
+  userId: string,
+  newToken: IssuedRefreshToken,
 ): Promise<boolean> {
-  const { count } = await getPrisma().refreshToken.updateMany({
-    where: { id, revokedAt: null },
-    data: { revokedAt: new Date() },
+  return getPrisma().$transaction(async (tx) => {
+    const { count } = await tx.refreshToken.updateMany({
+      where: { id: oldTokenId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+    if (count !== 1) return false;
+
+    await tx.refreshToken.create({
+      data: {
+        userId,
+        tokenHash: newToken.tokenHash,
+        expiresAt: newToken.expiresAt,
+      },
+    });
+    return true;
   });
-  return count === 1;
 }
 
 export async function revokeAllRefreshTokensForUser(

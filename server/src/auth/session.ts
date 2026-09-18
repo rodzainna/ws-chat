@@ -9,7 +9,7 @@ import {
 import {
   createRefreshTokenRecord,
   findRefreshTokenByPlaintext,
-  claimRefreshTokenForRotation,
+  rotateRefreshToken,
   revokeAllRefreshTokensForUser,
 } from "../db/refreshTokens.js";
 import { findActiveUserById } from "../db/users.js";
@@ -29,6 +29,10 @@ export async function establishSession(
 
 export type RefreshOutcome = { ok: true; user: User } | { ok: false };
 
+// reuse right after revocation is usually two tabs refreshing at once, not
+// theft, so only reuse outside this window counts as a theft signal
+const REUSE_GRACE_MS = 10_000;
+
 export async function rotateSession(
   req: Request,
   res: Response,
@@ -45,8 +49,11 @@ export async function rotateSession(
   }
 
   if (row.revokedAt) {
-    await revokeAllRefreshTokensForUser(row.userId);
-    clearAuthCookies(res);
+    const sinceRevoked = Date.now() - row.revokedAt.getTime();
+    if (sinceRevoked > REUSE_GRACE_MS) {
+      await revokeAllRefreshTokensForUser(row.userId);
+      clearAuthCookies(res);
+    }
     return { ok: false };
   }
 
@@ -62,15 +69,14 @@ export async function rotateSession(
   }
 
   const accessToken = await issueToken(user.id);
+  const refreshToken = generateRefreshToken();
 
-  const claimed = await claimRefreshTokenForRotation(row.id);
-  if (!claimed) {
-    clearAuthCookies(res);
+  const rotated = await rotateRefreshToken(row.id, user.id, refreshToken);
+  if (!rotated) {
+    // lost the race to another tab; clearing cookies could wipe its new session
     return { ok: false };
   }
 
-  const refreshToken = generateRefreshToken();
-  await createRefreshTokenRecord(user.id, refreshToken);
   setAuthCookies(res, { accessToken, refreshToken });
 
   return { ok: true, user };
