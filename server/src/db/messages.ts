@@ -36,15 +36,6 @@ export function findMessageById(id: string): Promise<Message | null> {
   return getPrisma().message.findUnique({ where: { id } });
 }
 
-export function findMessageWithAuthorById(
-  id: string,
-): Promise<MessageWithAuthor | null> {
-  return getPrisma().message.findUnique({
-    where: { id },
-    include: AUTHOR_AND_MENTIONS_INCLUDE,
-  });
-}
-
 export function findMessagesPage(input: {
   roomId: string;
   take: number;
@@ -78,4 +69,15 @@ export async function softDeleteMessage(id: string): Promise<Message | null> {
     data: { deletedAt: new Date() },
   });
   return updated ?? null;
+}
+
+// separate from softDeleteMessage because updateManyAndReturn can't include
+// one-to-many relations like mentions
+export function findMessageWithAuthorById(
+  id: string,
+): Promise<MessageWithAuthor | null> {
+  return getPrisma().message.findUnique({
+    where: { id },
+    include: AUTHOR_AND_MENTIONS_INCLUDE,
+  });
 }

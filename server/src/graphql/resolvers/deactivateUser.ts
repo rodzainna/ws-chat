@@ -1,10 +1,6 @@
 import { GraphQLError } from "graphql";
 import { requireActiveUser } from "../currentUser.js";
-import {
-  findUserById,
-  isLastActiveAdmin,
-  deactivateUserById,
-} from "../../db/users.js";
+import { findUserById, deactivateUserByIdGuarded } from "../../db/users.js";
 import type { User } from "../../generated/prisma/client.js";
 import type { GraphQLContext } from "../context.js";
 import type { GraphQLUserError } from "../userErrors.js";
@@ -12,16 +8,6 @@ import type { GraphQLUserError } from "../userErrors.js";
 type DeactivateUserPayload = {
   user: User | null;
   userErrors: GraphQLUserError[];
-};
-
-const USER_NOT_FOUND: GraphQLUserError = {
-  field: ["userId"],
-  message: "User not found",
-};
-
-const ALREADY_DEACTIVATED: GraphQLUserError = {
-  field: ["userId"],
-  message: "User is already deactivated",
 };
 
 export async function deactivateUser(
@@ -37,15 +23,25 @@ export async function deactivateUser(
     });
   }
 
-  const target = await findUserById(userId);
-  if (!target) {
-    return { user: null, userErrors: [USER_NOT_FOUND] };
+  const preCheck = await findUserById(userId);
+  if (!preCheck) {
+    return {
+      user: null,
+      userErrors: [{ field: ["userId"], message: "User not found" }],
+    };
   }
-  if (!target.isActive) {
-    return { user: null, userErrors: [ALREADY_DEACTIVATED] };
+  if (!preCheck.isActive) {
+    return {
+      user: null,
+      userErrors: [
+        { field: ["userId"], message: "User is already deactivated" },
+      ],
+    };
   }
 
-  if (await isLastActiveAdmin(target)) {
+  const { blocked, user } = await deactivateUserByIdGuarded(userId);
+
+  if (blocked) {
     return {
       user: null,
       userErrors: [
@@ -56,7 +52,12 @@ export async function deactivateUser(
       ],
     };
   }
+  if (!user) {
+    return {
+      user: null,
+      userErrors: [{ field: ["userId"], message: "User not found" }],
+    };
+  }
 
-  const updated = await deactivateUserById(userId);
-  return { user: updated, userErrors: [] };
+  return { user, userErrors: [] };
 }

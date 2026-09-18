@@ -74,9 +74,6 @@ export async function findRoomMembersByUsernames(
   return members.map((m) => m.user);
 }
 
-// public rooms plus private rooms the caller is in; private rooms stay
-// hidden from non-members. members is included to compute isMember in one
-// query.
 // deletedAt: null in the WHERE so only one concurrent delete wins (and
 // broadcasts)
 export async function softDeleteRoom(id: string): Promise<Room | null> {

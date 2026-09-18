@@ -1,9 +1,8 @@
 import { GraphQLError } from "graphql";
 import { requireActiveUser } from "../currentUser.js";
 import {
-  findMessageById,
-  findMessageWithAuthorById,
   softDeleteMessage,
+  findMessageWithAuthorById,
   type MessageWithAuthor,
 } from "../../db/messages.js";
 import type { GraphQLContext } from "../context.js";
@@ -31,11 +30,6 @@ export async function deleteMessage(
     throw new GraphQLError("Only an admin can delete another user's message", {
       extensions: { code: "FORBIDDEN" },
     });
-  }
-
-  const existing = await findMessageById(messageId);
-  if (!existing || existing.deletedAt !== null) {
-    return { message: null, userErrors: [MESSAGE_NOT_FOUND] };
   }
 
   const deleted = await softDeleteMessage(messageId);

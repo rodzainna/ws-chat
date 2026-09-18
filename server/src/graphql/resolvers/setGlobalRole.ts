@@ -1,10 +1,6 @@
 import { GraphQLError } from "graphql";
 import { requireActiveUser } from "../currentUser.js";
-import {
-  findUserById,
-  isLastActiveAdmin,
-  updateGlobalRole,
-} from "../../db/users.js";
+import { updateGlobalRoleGuarded } from "../../db/users.js";
 import type { GlobalRole, User } from "../../generated/prisma/client.js";
 import type { GraphQLContext } from "../context.js";
 import type { GraphQLUserError } from "../userErrors.js";
@@ -12,11 +8,6 @@ import type { GraphQLUserError } from "../userErrors.js";
 type SetGlobalRolePayload = {
   user: User | null;
   userErrors: GraphQLUserError[];
-};
-
-const USER_NOT_FOUND: GraphQLUserError = {
-  field: ["userId"],
-  message: "User not found",
 };
 
 export async function setGlobalRole(
@@ -32,12 +23,9 @@ export async function setGlobalRole(
     });
   }
 
-  const target = await findUserById(userId);
-  if (!target) {
-    return { user: null, userErrors: [USER_NOT_FOUND] };
-  }
+  const { blocked, user } = await updateGlobalRoleGuarded(userId, role);
 
-  if (role !== "ADMIN" && (await isLastActiveAdmin(target))) {
+  if (blocked) {
     return {
       user: null,
       userErrors: [
@@ -48,7 +36,12 @@ export async function setGlobalRole(
       ],
     };
   }
+  if (!user) {
+    return {
+      user: null,
+      userErrors: [{ field: ["userId"], message: "User not found" }],
+    };
+  }
 
-  const updated = await updateGlobalRole(userId, role);
-  return { user: updated, userErrors: [] };
+  return { user, userErrors: [] };
 }

@@ -16,12 +16,14 @@ export async function deleteRoom(
 ): Promise<RoomMutationPayload> {
   const user = await requireActiveUser(context);
 
-  const room = await findActiveRoomById(roomId);
+  const [room, membership] = await Promise.all([
+    findActiveRoomById(roomId),
+    findMembership(roomId, user.id),
+  ]);
   if (!room) {
     return { room: null, userErrors: [ROOM_NOT_FOUND] };
   }
 
-  const membership = await findMembership(roomId, user.id);
   const isOwner = membership?.role === "OWNER";
   if (!isOwner && user.globalRole !== "ADMIN") {
     throw new GraphQLError(
@@ -35,10 +37,13 @@ export async function deleteRoom(
     return { room: null, userErrors: [ROOM_NOT_FOUND] };
   }
 
+  // broadcast while members are still registered, then evict: sockets trust
+  // the registry, so a client ignoring the frame could keep sending
   context.roomRegistry.broadcast(
     roomId,
     JSON.stringify({ type: "room_deleted", roomId } satisfies ServerMessage),
   );
+  context.roomRegistry.evictRoom(roomId);
 
   return { room: deleted, userErrors: [] };
 }
