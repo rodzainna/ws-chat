@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 import { useAuth } from "@/auth/AuthContext";
 import { useChatSocket, type WsChatMessage } from "@/ws/useChatSocket";
 import { ROOMS_QUERY } from "@/components/RoomSidebar";
@@ -165,23 +166,24 @@ export function RoomPage() {
             const isOwn = message.userId === user?.id;
             const isEditing = editingId === message.id;
             return (
-              <div key={message.id} className="group text-sm">
-                <div className="flex items-baseline gap-2">
-                  <span className="font-medium">
-                    {isOwn ? "You" : message.userId.slice(0, 8)}
+              <div
+                key={message.id}
+                className={cn(
+                  "group flex flex-col text-sm",
+                  isOwn ? "items-end" : "items-start",
+                )}
+              >
+                {!isOwn && (
+                  <span className="mb-1 px-1 text-xs font-medium text-muted-foreground">
+                    {message.userId.slice(0, 8)}
                   </span>
-                  <span className="text-xs text-muted-foreground">
-                    {new Date(message.createdAt).toLocaleTimeString()}
-                  </span>
-                  {message.editedAt && !message.deleted && (
-                    <span className="text-xs text-muted-foreground">
-                      (edited)
-                    </span>
-                  )}
-                </div>
+                )}
 
                 {isEditing ? (
-                  <form onSubmit={submitEdit} className="mt-1 flex gap-2">
+                  <form
+                    onSubmit={submitEdit}
+                    className="flex w-full max-w-[70%] gap-2"
+                  >
                     <Input
                       autoFocus
                       value={editDraft}
@@ -200,34 +202,43 @@ export function RoomPage() {
                     </Button>
                   </form>
                 ) : (
-                  <div className="flex items-center gap-2">
-                    <p
-                      className={
-                        message.deleted ? "italic text-muted-foreground" : ""
-                      }
-                    >
-                      {message.content}
-                    </p>
-                    {isOwn && !message.deleted && (
-                      <span className="hidden gap-1 group-hover:flex">
-                        <button
-                          type="button"
-                          className="text-xs text-muted-foreground hover:underline"
-                          onClick={() => startEdit(message)}
-                        >
-                          Edit
-                        </button>
-                        <button
-                          type="button"
-                          className="text-xs text-muted-foreground hover:underline"
-                          onClick={() => deleteMessage(message.id)}
-                        >
-                          Delete
-                        </button>
-                      </span>
+                  <div
+                    className={cn(
+                      "max-w-[70%] rounded-2xl px-3 py-2",
+                      isOwn ? "bg-primary text-primary-foreground" : "bg-muted",
+                      message.deleted && "italic opacity-70",
                     )}
+                  >
+                    {message.content}
                   </div>
                 )}
+
+                <div className="mt-1 flex items-center gap-2 px-1 text-xs text-muted-foreground">
+                  <span>
+                    {new Date(message.createdAt).toLocaleTimeString()}
+                  </span>
+                  {message.editedAt && !message.deleted && (
+                    <span>(edited)</span>
+                  )}
+                  {isOwn && !message.deleted && !isEditing && (
+                    <span className="hidden gap-1 group-hover:flex">
+                      <button
+                        type="button"
+                        className="hover:underline"
+                        onClick={() => startEdit(message)}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        className="hover:underline"
+                        onClick={() => deleteMessage(message.id)}
+                      >
+                        Delete
+                      </button>
+                    </span>
+                  )}
+                </div>
               </div>
             );
           })}
