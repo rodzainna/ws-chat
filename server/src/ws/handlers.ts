@@ -18,6 +18,7 @@ import {
 } from "../db/messages.js";
 import { validateMessageContent } from "../messages/validation.js";
 import { extractMentionedUsernames } from "../messages/mentions.js";
+import { tryConsumeMessageToken } from "../messages/rateLimit.js";
 import type { Message } from "../generated/prisma/client.js";
 
 function send(socket: WebSocket, message: ServerMessage): void {
@@ -114,6 +115,16 @@ async function handleMessage(
     }
 
     case "send": {
+      // before the membership check, so rejected sends still cost a token
+      if (!tryConsumeMessageToken(userId)) {
+        send(socket, {
+          type: "error",
+          code: "RATE_LIMITED",
+          message: "You're sending messages too fast — slow down a bit",
+        });
+        return;
+      }
+
       if (
         !requireRoomMembership(socket, registry, message.roomId, "sending to")
       ) {

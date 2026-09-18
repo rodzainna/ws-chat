@@ -96,8 +96,9 @@ export function useChatSocket(roomId: string, handlers: ChatSocketHandlers) {
   const send = useCallback(
     (type: "send" | "edit" | "delete", body: Record<string, unknown>) => {
       const socket = socketRef.current;
-      if (!socket || socket.readyState !== WebSocket.OPEN) return;
+      if (!socket || socket.readyState !== WebSocket.OPEN) return false;
       socket.send(JSON.stringify({ type, roomId, ...body }));
+      return true;
     },
     [roomId],
   );
