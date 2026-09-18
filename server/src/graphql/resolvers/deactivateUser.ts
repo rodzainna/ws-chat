@@ -39,19 +39,23 @@ export async function deactivateUser(
     };
   }
 
-  const { blocked, user } = await deactivateUserByIdGuarded(userId);
+  const result = await deactivateUserByIdGuarded(userId);
 
-  if (blocked) {
+  if (result.blocked) {
     return {
       user: null,
       userErrors: [
         {
           field: ["userId"],
-          message: "Cannot deactivate the last active admin",
+          message:
+            result.reason === "superadmin"
+              ? "This account cannot be deactivated"
+              : "Cannot deactivate the last active admin",
         },
       ],
     };
   }
+  const { user } = result;
   if (!user) {
     return {
       user: null,

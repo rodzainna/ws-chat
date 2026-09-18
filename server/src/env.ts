@@ -16,3 +16,12 @@ export function getPositiveIntEnv(name: string, defaultValue: number): number {
   }
   return parsed;
 }
+
+let cachedSuperAdminUsername: string | null | undefined;
+export function getSuperAdminUsername(): string | null {
+  if (cachedSuperAdminUsername === undefined) {
+    const raw = process.env.SUPERADMIN_USERNAME;
+    cachedSuperAdminUsername = raw ? raw.trim().toLowerCase() : null;
+  }
+  return cachedSuperAdminUsername;
+}

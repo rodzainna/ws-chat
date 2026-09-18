@@ -1,4 +1,5 @@
 import { getPrisma } from "./prisma.js";
+import { getSuperAdminUsername } from "../env.js";
 import type { Prisma, GlobalRole, User } from "../generated/prisma/client.js";
 
 export function findUserByUsername(username: string): Promise<User | null> {
@@ -31,7 +32,8 @@ export function createUser(input: {
 }
 
 export type GuardedUpdateResult =
-  { blocked: true; user: null } | { blocked: false; user: User | null };
+  | { blocked: true; user: null; reason: "last-active-admin" | "superadmin" }
+  | { blocked: false; user: User | null };
 
 // "never drop to zero active admins" has to hold when two requests demote
 // two different admins at once; each row lock alone doesn't cover the other
@@ -46,6 +48,13 @@ async function guardedAdminUpdate(
     const target = await tx.user.findUnique({ where: { id: userId } });
     if (!target) return { blocked: false, user: null };
 
+    if (
+      removesFromActiveAdmins &&
+      target.username === getSuperAdminUsername()
+    ) {
+      return { blocked: true, user: null, reason: "superadmin" };
+    }
+
     const isLiveRisk =
       removesFromActiveAdmins &&
       target.globalRole === "ADMIN" &&
@@ -55,7 +64,7 @@ async function guardedAdminUpdate(
         SELECT id FROM "users" WHERE "globalRole" = 'ADMIN' AND "isActive" = true FOR UPDATE
       `;
       if (lockedActiveAdmins.length <= 1) {
-        return { blocked: true, user: null };
+        return { blocked: true, user: null, reason: "last-active-admin" };
       }
     }
 
