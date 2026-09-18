@@ -11,6 +11,7 @@ import { deleteMessage } from "./resolvers/deleteMessage.js";
 import { setGlobalRole } from "./resolvers/setGlobalRole.js";
 import { deactivateUser } from "./resolvers/deactivateUser.js";
 import { messages } from "./resolvers/messages.js";
+import { users } from "./resolvers/users.js";
 import { rooms } from "./resolvers/rooms.js";
 import { me } from "./resolvers/me.js";
 import type { MessageWithAuthor } from "../db/messages.js";
@@ -21,6 +22,7 @@ export const resolvers = {
     me,
     rooms,
     messages,
+    users,
   },
   Mutation: {
     register,

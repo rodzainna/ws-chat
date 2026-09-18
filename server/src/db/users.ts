@@ -58,3 +58,14 @@ export function deactivateUserById(userId: string): Promise<User> {
     data: { isActive: false },
   });
 }
+
+export function findUsersPage(input: {
+  take: number;
+  afterId?: string;
+}): Promise<User[]> {
+  return getPrisma().user.findMany({
+    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+    take: input.take,
+    ...(input.afterId ? { cursor: { id: input.afterId }, skip: 1 } : {}),
+  });
+}

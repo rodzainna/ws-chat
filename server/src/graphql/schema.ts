@@ -54,6 +54,16 @@ export const typeDefs = `#graphql
     pageInfo: PageInfo!
   }
 
+  type UserEdge {
+    cursor: String!
+    node: User!
+  }
+
+  type UserConnection {
+    edges: [UserEdge!]!
+    pageInfo: PageInfo!
+  }
+
   type UserError {
     field: [String!]
     message: String!
@@ -133,6 +143,7 @@ export const typeDefs = `#graphql
     me: User
     rooms: [Room!]!
     messages(roomId: ID!, first: Int, after: String): MessageConnection!
+    users(first: Int, after: String): UserConnection!
   }
 
   type Mutation {
