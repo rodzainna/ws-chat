@@ -114,6 +114,11 @@ export const typeDefs = `#graphql
     userErrors: [UserError!]!
   }
 
+  type DeactivateUserPayload {
+    user: User
+    userErrors: [UserError!]!
+  }
+
   type Query {
     me: User
     rooms: [Room!]!
@@ -129,5 +134,6 @@ export const typeDefs = `#graphql
     joinRoom(roomId: ID!): JoinRoomPayload!
     addRoomMember(roomId: ID!, username: String!): AddRoomMemberPayload!
     setGlobalRole(userId: ID!, role: GlobalRole!): SetGlobalRolePayload!
+    deactivateUser(userId: ID!): DeactivateUserPayload!
   }
 `;

@@ -3,13 +3,13 @@ import { requireActiveUser } from "../currentUser.js";
 import {
   findUserById,
   isLastActiveAdmin,
-  updateGlobalRole,
+  deactivateUserById,
 } from "../../db/users.js";
-import type { GlobalRole, User } from "../../generated/prisma/client.js";
+import type { User } from "../../generated/prisma/client.js";
 import type { GraphQLContext } from "../context.js";
 import type { GraphQLUserError } from "../userErrors.js";
 
-type SetGlobalRolePayload = {
+type DeactivateUserPayload = {
   user: User | null;
   userErrors: GraphQLUserError[];
 };
@@ -19,15 +19,20 @@ const USER_NOT_FOUND: GraphQLUserError = {
   message: "User not found",
 };
 
-export async function setGlobalRole(
+const ALREADY_DEACTIVATED: GraphQLUserError = {
+  field: ["userId"],
+  message: "User is already deactivated",
+};
+
+export async function deactivateUser(
   _parent: unknown,
-  { userId, role }: { userId: string; role: GlobalRole },
+  { userId }: { userId: string },
   context: GraphQLContext,
-): Promise<SetGlobalRolePayload> {
+): Promise<DeactivateUserPayload> {
   const caller = await requireActiveUser(context);
 
   if (caller.globalRole !== "ADMIN") {
-    throw new GraphQLError("Only an admin can change a user's role", {
+    throw new GraphQLError("Only an admin can deactivate a user", {
       extensions: { code: "FORBIDDEN" },
     });
   }
@@ -36,19 +41,22 @@ export async function setGlobalRole(
   if (!target) {
     return { user: null, userErrors: [USER_NOT_FOUND] };
   }
+  if (!target.isActive) {
+    return { user: null, userErrors: [ALREADY_DEACTIVATED] };
+  }
 
-  if (role !== "ADMIN" && (await isLastActiveAdmin(target))) {
+  if (await isLastActiveAdmin(target)) {
     return {
       user: null,
       userErrors: [
         {
-          field: ["role"],
-          message: "Cannot change the last active admin's role",
+          field: ["userId"],
+          message: "Cannot deactivate the last active admin",
         },
       ],
     };
   }
 
-  const updated = await updateGlobalRole(userId, role);
+  const updated = await deactivateUserById(userId);
   return { user: updated, userErrors: [] };
 }
