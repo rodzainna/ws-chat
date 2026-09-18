@@ -75,9 +75,10 @@ export function RoomPage() {
 
   useEffect(() => {
     if (!data || historyLoaded) return;
+    // merge, don't replace: live messages can arrive before history resolves
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setMessages(
-      data.messages.edges.map(({ node }) => ({
+    setMessages((prev) => {
+      const history = data.messages.edges.map(({ node }) => ({
         id: node.id,
         userId: node.userId,
         username: node.username,
@@ -85,8 +86,11 @@ export function RoomPage() {
         createdAt: node.createdAt,
         editedAt: node.editedAt,
         deleted: node.deletedAt !== null,
-      })),
-    );
+      }));
+      const historyIds = new Set(history.map((m) => m.id));
+      const liveOnly = prev.filter((m) => !historyIds.has(m.id));
+      return [...history, ...liveOnly];
+    });
     setHistoryLoaded(true);
   }, [data, historyLoaded]);
 

@@ -45,6 +45,7 @@ export function useChatSocket(roomId: string, handlers: ChatSocketHandlers) {
   useEffect(() => {
     const socket = new WebSocket(wsUrl());
     socketRef.current = socket;
+    let closingIntentionally = false;
 
     socket.addEventListener("open", () => {
       socket.send(JSON.stringify({ type: "join", roomId }));
@@ -73,7 +74,16 @@ export function useChatSocket(roomId: string, handlers: ChatSocketHandlers) {
       }
     });
 
+    socket.addEventListener("close", () => {
+      if (closingIntentionally) return;
+      handlersRef.current.onError?.(
+        "CONNECTION_LOST",
+        "Connection lost — reload the page to reconnect.",
+      );
+    });
+
     return () => {
+      closingIntentionally = true;
       if (socket.readyState === WebSocket.OPEN) {
         socket.send(JSON.stringify({ type: "leave", roomId }));
       }

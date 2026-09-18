@@ -109,7 +109,7 @@ export function RoomSidebar() {
     setDialogOpen(false);
     setName("");
     setIsPrivate(false);
-    await refetch();
+    await refetch().catch(() => {});
     void navigate(`/rooms/${payload.room.id}`);
   }
 
@@ -118,7 +118,10 @@ export function RoomSidebar() {
       void navigate(`/rooms/${room.id}`);
       return;
     }
-    if (!canJoin) return;
+    if (!canJoin) {
+      setJoinError("Restricted users can't join rooms directly.");
+      return;
+    }
 
     setJoinError(null);
     const result = await joinRoom({ variables: { roomId: room.id } });
@@ -127,7 +130,7 @@ export function RoomSidebar() {
       setJoinError(payload?.userErrors?.[0]?.message ?? "Could not join room");
       return;
     }
-    await refetch();
+    await refetch().catch(() => {});
     void navigate(`/rooms/${payload.room.id}`);
   }
 
