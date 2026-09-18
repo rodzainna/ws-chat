@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { useParams } from "react-router";
 import { gql, useQuery } from "@apollo/client";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -147,7 +148,10 @@ export function RoomPage() {
           ),
         );
       },
-      onError: (_code, message) => setSocketError(message),
+      onError: (code, message) =>
+        code === "RATE_LIMITED"
+          ? toast.warning(message)
+          : setSocketError(message),
     },
   );
 
