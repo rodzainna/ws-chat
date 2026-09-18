@@ -33,6 +33,21 @@ function toChatMessage(message: Message): ChatMessage {
   };
 }
 
+function requireRoomMembership(
+  socket: WebSocket,
+  registry: RoomRegistry,
+  roomId: string,
+  verb: string,
+): boolean {
+  if (registry.isMember(socket, roomId)) return true;
+  send(socket, {
+    type: "error",
+    code: "NOT_IN_ROOM",
+    message: `You must join "${roomId}" before ${verb} it`,
+  });
+  return false;
+}
+
 async function loadOwnedLiveMessage(
   socket: WebSocket,
   userId: string,
@@ -95,12 +110,9 @@ async function handleMessage(
     }
 
     case "send": {
-      if (!registry.isMember(socket, message.roomId)) {
-        send(socket, {
-          type: "error",
-          code: "NOT_IN_ROOM",
-          message: `You must join "${message.roomId}" before sending to it`,
-        });
+      if (
+        !requireRoomMembership(socket, registry, message.roomId, "sending to")
+      ) {
         return;
       }
 
@@ -130,12 +142,9 @@ async function handleMessage(
     }
 
     case "edit": {
-      if (!registry.isMember(socket, message.roomId)) {
-        send(socket, {
-          type: "error",
-          code: "NOT_IN_ROOM",
-          message: `You must join "${message.roomId}" before editing in it`,
-        });
+      if (
+        !requireRoomMembership(socket, registry, message.roomId, "editing in")
+      ) {
         return;
       }
 
@@ -182,12 +191,9 @@ async function handleMessage(
     }
 
     case "delete": {
-      if (!registry.isMember(socket, message.roomId)) {
-        send(socket, {
-          type: "error",
-          code: "NOT_IN_ROOM",
-          message: `You must join "${message.roomId}" before deleting in it`,
-        });
+      if (
+        !requireRoomMembership(socket, registry, message.roomId, "deleting in")
+      ) {
         return;
       }
 
@@ -233,19 +239,21 @@ export function registerWsHandlers(wss: WebSocketServer): void {
 
     console.log(`client connected (user ${userId})`);
 
+    let processingQueue: Promise<void> = Promise.resolve();
     socket.on("message", (data: Buffer) => {
-      handleMessage(
-        socket as AuthenticatedWebSocket,
-        registry,
-        data.toString(),
-      ).catch((err: unknown) => {
-        console.error("Error handling WS message:", err);
-        send(socket, {
-          type: "error",
-          code: "INTERNAL_ERROR",
-          message: "Something went wrong processing that message",
+      const raw = data.toString();
+      processingQueue = processingQueue
+        .then(() =>
+          handleMessage(socket as AuthenticatedWebSocket, registry, raw),
+        )
+        .catch((err: unknown) => {
+          console.error("Error handling WS message:", err);
+          send(socket, {
+            type: "error",
+            code: "INTERNAL_ERROR",
+            message: "Something went wrong processing that message",
+          });
         });
-      });
     });
 
     socket.on("close", () => {
