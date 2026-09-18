@@ -8,6 +8,7 @@ export type WsChatMessage = {
   content: string;
   createdAt: string;
   editedAt: string | null;
+  mentionedUsernames: string[];
 };
 
 type ServerMessage =

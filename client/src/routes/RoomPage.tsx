@@ -20,6 +20,7 @@ type ChatMessage = {
   createdAt: string;
   editedAt: string | null;
   deleted: boolean;
+  mentionedUsernames: string[];
 };
 
 const ROOM_MESSAGES_QUERY = gql`
@@ -34,11 +35,32 @@ const ROOM_MESSAGES_QUERY = gql`
           createdAt
           editedAt
           deletedAt
+          mentionedUsernames
         }
       }
     }
   }
 `;
+
+function renderContentWithMentions(
+  content: string,
+  mentionedUsernames: string[],
+) {
+  if (mentionedUsernames.length === 0) return content;
+  const pattern = new RegExp(`@(${mentionedUsernames.join("|")})\\b`, "gi");
+  return content.split(pattern).map((part, index) =>
+    index % 2 === 1 ? (
+      <span
+        key={index}
+        className="font-medium text-blue-600 dark:text-blue-400"
+      >
+        @{part}
+      </span>
+    ) : (
+      part
+    ),
+  );
+}
 
 export function RoomPage() {
   const { roomId } = useParams<{ roomId: string }>();
@@ -64,6 +86,7 @@ export function RoomPage() {
           createdAt: string;
           editedAt: string | null;
           deletedAt: string | null;
+          mentionedUsernames: string[];
         };
       }[];
     };
@@ -86,6 +109,7 @@ export function RoomPage() {
         createdAt: node.createdAt,
         editedAt: node.editedAt,
         deleted: node.deletedAt !== null,
+        mentionedUsernames: node.mentionedUsernames,
       }));
       const historyIds = new Set(history.map((m) => m.id));
       const liveOnly = prev.filter((m) => !historyIds.has(m.id));
@@ -220,7 +244,10 @@ export function RoomPage() {
                       message.deleted && "italic opacity-70",
                     )}
                   >
-                    {message.content}
+                    {renderContentWithMentions(
+                      message.content,
+                      message.mentionedUsernames,
+                    )}
                   </div>
                 )}
 
