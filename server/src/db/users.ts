@@ -11,12 +11,6 @@ export function findUserById(id: string): Promise<User | null> {
   return getPrisma().user.findUnique({ where: { id } });
 }
 
-export function findUsersByUsernames(usernames: string[]): Promise<User[]> {
-  return getPrisma().user.findMany({
-    where: { username: { in: usernames.map((u) => u.toLowerCase()) } },
-  });
-}
-
 export async function findActiveUserById(id: string): Promise<User | null> {
   const user = await findUserById(id);
   return user && user.isActive ? user : null;

@@ -8,7 +8,7 @@ import {
   type ClientMessage,
   type ServerMessage,
 } from "./messages.js";
-import { canAccessRoom } from "../db/rooms.js";
+import { canAccessRoom, findRoomMembersByUsernames } from "../db/rooms.js";
 import {
   createMessage,
   findMessageById,
@@ -16,7 +16,6 @@ import {
   softDeleteMessage,
   type MessageWithAuthor,
 } from "../db/messages.js";
-import { findUsersByUsernames } from "../db/users.js";
 import { validateMessageContent } from "../messages/validation.js";
 import { extractMentionedUsernames } from "../messages/mentions.js";
 import type { Message } from "../generated/prisma/client.js";
@@ -135,7 +134,7 @@ async function handleMessage(
       const candidateUsernames = extractMentionedUsernames(trimmedContent);
       const mentionedUsers =
         candidateUsernames.length > 0
-          ? await findUsersByUsernames(candidateUsernames)
+          ? await findRoomMembersByUsernames(message.roomId, candidateUsernames)
           : [];
 
       const created = await createMessage({
