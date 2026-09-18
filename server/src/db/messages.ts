@@ -26,16 +26,23 @@ export function findMessagesPage(input: {
   });
 }
 
-export function editMessage(id: string, content: string): Promise<Message> {
-  return getPrisma().message.update({
-    where: { id },
+export async function editMessage(
+  id: string,
+  content: string,
+): Promise<Message | null> {
+  const { count } = await getPrisma().message.updateMany({
+    where: { id, deletedAt: null },
     data: { content, editedAt: new Date() },
   });
+  if (count !== 1) return null;
+  return findMessageById(id);
 }
 
-export function softDeleteMessage(id: string): Promise<Message> {
-  return getPrisma().message.update({
-    where: { id },
+export async function softDeleteMessage(id: string): Promise<Message | null> {
+  const { count } = await getPrisma().message.updateMany({
+    where: { id, deletedAt: null },
     data: { deletedAt: new Date() },
   });
+  if (count !== 1) return null;
+  return findMessageById(id);
 }

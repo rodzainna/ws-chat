@@ -161,6 +161,14 @@ async function handleMessage(
         message.messageId,
         message.content.trim(),
       );
+      if (!updated) {
+        send(socket, {
+          type: "error",
+          code: "NOT_FOUND",
+          message: "Message not found",
+        });
+        return;
+      }
       registry.broadcast(
         message.roomId,
         JSON.stringify({
@@ -191,7 +199,15 @@ async function handleMessage(
       );
       if (!existing) return;
 
-      await softDeleteMessage(message.messageId);
+      const deleted = await softDeleteMessage(message.messageId);
+      if (!deleted) {
+        send(socket, {
+          type: "error",
+          code: "NOT_FOUND",
+          message: "Message not found",
+        });
+        return;
+      }
       registry.broadcast(
         message.roomId,
         JSON.stringify({
