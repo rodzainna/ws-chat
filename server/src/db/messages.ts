@@ -32,6 +32,8 @@ export function findMessagesPage(input: {
   });
 }
 
+// deletedAt: null in the WHERE closes the race with a concurrent delete, and
+// updateManyAndReturn reads the row back in the same statement
 export async function editMessage(
   id: string,
   content: string,

@@ -241,6 +241,8 @@ export function registerWsHandlers(wss: WebSocketServer): void {
 
     console.log(`client connected (user ${userId})`);
 
+    // one socket's frames run strictly in order, or a send right after a
+    // join could race the join's async access check. Sockets stay concurrent.
     let processingQueue: Promise<void> = Promise.resolve();
     socket.on("message", (data: Buffer) => {
       const raw = data.toString();

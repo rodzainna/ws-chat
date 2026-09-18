@@ -46,6 +46,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const refetchUser = useCallback(async () => {
+    // the cache isn't keyed by user, so a new login mustn't see the old one's
     await client.clearStore();
     const { data } = await client.query<{ me: CurrentUser | null }>({
       query: ME_QUERY,
@@ -56,6 +57,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    // a null /me usually just means the access token expired. me returns
+    // null rather than throwing, so the error link won't refresh; do it here.
     const refreshed = await attemptRefresh();
     if (!refreshed) {
       setUser(null);
