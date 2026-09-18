@@ -9,7 +9,7 @@ import { addRoomMember } from "./resolvers/addRoomMember.js";
 import { messages } from "./resolvers/messages.js";
 import { rooms } from "./resolvers/rooms.js";
 import { me } from "./resolvers/me.js";
-import type { Message } from "../generated/prisma/client.js";
+import type { MessageWithAuthor } from "../db/messages.js";
 
 export const resolvers = {
   DateTime: DateTimeResolver,
@@ -28,7 +28,8 @@ export const resolvers = {
     addRoomMember,
   },
   Message: {
-    content: (parent: Message) =>
+    content: (parent: MessageWithAuthor) =>
       parent.deletedAt ? "[message deleted]" : parent.content,
+    username: (parent: MessageWithAuthor) => parent.user.username,
   },
 };

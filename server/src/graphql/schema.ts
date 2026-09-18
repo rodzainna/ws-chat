@@ -31,6 +31,7 @@ export const typeDefs = `#graphql
     id: ID!
     roomId: ID!
     userId: ID!
+    username: String!
     content: String!
     createdAt: DateTime!
     editedAt: DateTime

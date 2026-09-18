@@ -1,12 +1,17 @@
 import { getPrisma } from "./prisma.js";
 import type { Message } from "../generated/prisma/client.js";
 
+export type MessageWithAuthor = Message & { user: { username: string } };
+
 export function createMessage(input: {
   roomId: string;
   userId: string;
   content: string;
-}): Promise<Message> {
-  return getPrisma().message.create({ data: input });
+}): Promise<MessageWithAuthor> {
+  return getPrisma().message.create({
+    data: input,
+    include: { user: { select: { username: true } } },
+  });
 }
 
 export function findMessageById(id: string): Promise<Message | null> {
@@ -17,11 +22,12 @@ export function findMessagesPage(input: {
   roomId: string;
   take: number;
   afterId?: string;
-}): Promise<Message[]> {
+}): Promise<MessageWithAuthor[]> {
   return getPrisma().message.findMany({
     where: { roomId: input.roomId },
     orderBy: [{ createdAt: "asc" }, { id: "asc" }],
     take: input.take,
+    include: { user: { select: { username: true } } },
     ...(input.afterId ? { cursor: { id: input.afterId }, skip: 1 } : {}),
   });
 }

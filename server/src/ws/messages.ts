@@ -9,6 +9,7 @@ export type ChatMessage = {
   id: string;
   roomId: string;
   userId: string;
+  username: string;
   content: string;
   createdAt: string;
   editedAt: string | null;
