@@ -2,8 +2,11 @@ import { GraphQLError } from "graphql";
 import { requireActiveUser } from "../currentUser.js";
 import { validateRoomName } from "../../rooms/validation.js";
 import { createRoomWithOwner } from "../../db/rooms.js";
-import { getViolatedUniqueField } from "../../db/prismaErrors.js";
-import { Prisma, type Room } from "../../generated/prisma/client.js";
+import {
+  getViolatedUniqueField,
+  isUniqueConstraintViolation,
+} from "../../db/prismaErrors.js";
+import type { Room } from "../../generated/prisma/client.js";
 import type { GraphQLContext } from "../context.js";
 import { toUserError, type GraphQLUserError } from "../userErrors.js";
 
@@ -39,10 +42,7 @@ export async function createRoom(
     });
     return { room, userErrors: [] };
   } catch (err) {
-    if (
-      err instanceof Prisma.PrismaClientKnownRequestError &&
-      err.code === "P2002"
-    ) {
+    if (isUniqueConstraintViolation(err)) {
       const field = getViolatedUniqueField(err);
       return {
         room: null,

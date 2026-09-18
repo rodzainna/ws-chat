@@ -5,7 +5,8 @@ import {
   findMembership,
   addMember,
 } from "../../db/rooms.js";
-import { Prisma, type Room } from "../../generated/prisma/client.js";
+import { isUniqueConstraintViolation } from "../../db/prismaErrors.js";
+import type { Room } from "../../generated/prisma/client.js";
 import type { GraphQLContext } from "../context.js";
 import type { GraphQLUserError } from "../userErrors.js";
 
@@ -56,10 +57,7 @@ export async function joinRoom(
   try {
     await addMember(roomId, user.id);
   } catch (err) {
-    if (
-      err instanceof Prisma.PrismaClientKnownRequestError &&
-      err.code === "P2002"
-    ) {
+    if (isUniqueConstraintViolation(err)) {
       return { room: null, userErrors: [ALREADY_MEMBER] };
     }
     throw err;
