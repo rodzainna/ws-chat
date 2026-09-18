@@ -78,7 +78,10 @@ export function RoomPage() {
   const [editDraft, setEditDraft] = useState("");
   const [socketError, setSocketError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
-  const lastSentDraftRef = useRef("");
+  // sent-but-unconfirmed drafts, so a rate-limited send can be restored. FIFO
+  // works because the server answers a socket's frames in order. (A second
+  // tab in the same room can throw this off; accepted.)
+  const pendingSendsRef = useRef<string[]>([]);
 
   const { data, loading } = useQuery<{
     messages: {
@@ -127,6 +130,9 @@ export function RoomPage() {
     roomId ?? "",
     {
       onCreated: (message: WsChatMessage) => {
+        if (message.userId === user?.id) {
+          pendingSendsRef.current.shift();
+        }
         setMessages((prev) =>
           prev.some((m) => m.id === message.id)
             ? prev
@@ -152,7 +158,10 @@ export function RoomPage() {
       onError: (code, message) => {
         if (code === "RATE_LIMITED") {
           toast.warning(message);
-          setDraft((current) => current || lastSentDraftRef.current);
+          const rejected = pendingSendsRef.current.shift();
+          if (rejected !== undefined) {
+            setDraft((current) => current || rejected);
+          }
           return;
         }
         setSocketError(message);
@@ -172,9 +181,9 @@ export function RoomPage() {
   function handleSend(event: FormEvent) {
     event.preventDefault();
     if (!draft.trim()) return;
+    if (!sendMessage(draft)) return;
     setSocketError(null);
-    lastSentDraftRef.current = draft;
-    sendMessage(draft);
+    pendingSendsRef.current.push(draft);
     setDraft("");
   }
 
@@ -226,29 +235,54 @@ export function RoomPage() {
                   <span>
                     {new Date(message.createdAt).toLocaleTimeString()}
                   </span>
+                  <div className="flex items-center gap-2 px-1 text-xs text-muted-foreground">
+                    {message.editedAt && !message.deleted && (
+                      <span>(edited)</span>
+                    )}
+                    {isOwn && !message.deleted && !isEditing && (
+                      <span className="hidden gap-1 group-hover:flex">
+                        <button
+                          type="button"
+                          className="hover:underline hover:cursor-pointer"
+                          onClick={() => startEdit(message)}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          className="hover:underline hover:cursor-pointer"
+                          onClick={() => deleteMessage(message.id)}
+                        >
+                          Delete
+                        </button>
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 {isEditing ? (
                   <form
                     onSubmit={submitEdit}
-                    className="flex w-full max-w-[70%] gap-2"
+                    className="flex items-center w-full max-w-[70%] gap-2"
                   >
                     <Input
                       autoFocus
                       value={editDraft}
                       onChange={(event) => setEditDraft(event.target.value)}
                     />
-                    <Button size="sm" type="submit">
-                      Save
-                    </Button>
-                    <Button
-                      size="sm"
-                      type="button"
-                      variant="ghost"
-                      onClick={() => setEditingId(null)}
-                    >
-                      Cancel
-                    </Button>
+                    <div className="flex items-center gap-0.5">
+                      <Button size="sm" type="submit">
+                        Save
+                      </Button>
+                      <Button
+                        size="sm"
+                        type="button"
+                        variant="secondary"
+                        onClick={() => setEditingId(null)}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
                   </form>
                 ) : (
                   <div
@@ -264,30 +298,6 @@ export function RoomPage() {
                     )}
                   </div>
                 )}
-
-                <div className="mt-1 flex items-center gap-2 px-1 text-xs text-muted-foreground">
-                  {message.editedAt && !message.deleted && (
-                    <span>(edited)</span>
-                  )}
-                  {isOwn && !message.deleted && !isEditing && (
-                    <span className="hidden gap-1 group-hover:flex">
-                      <button
-                        type="button"
-                        className="hover:underline"
-                        onClick={() => startEdit(message)}
-                      >
-                        Edit
-                      </button>
-                      <button
-                        type="button"
-                        className="hover:underline"
-                        onClick={() => deleteMessage(message.id)}
-                      >
-                        Delete
-                      </button>
-                    </span>
-                  )}
-                </div>
               </div>
             );
           })}

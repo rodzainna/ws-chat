@@ -18,8 +18,6 @@ function getRefillRate(): number {
   return cachedRefillRate;
 }
 
-getRefillRate();
-
 type Bucket = { tokens: number; lastRefill: number };
 
 const buckets = new Map<string, Bucket>();
@@ -50,10 +48,9 @@ export function tryConsumeMessageToken(userId: string): boolean {
 }
 
 function sweepIdleBuckets(now: number): void {
-  const capacity = getCapacity();
+  const windowMs = getWindowMs();
   for (const [userId, bucket] of buckets) {
-    refill(bucket, now);
-    if (bucket.tokens >= capacity) {
+    if (now - bucket.lastRefill >= windowMs) {
       buckets.delete(userId);
     }
   }
@@ -61,5 +58,9 @@ function sweepIdleBuckets(now: number): void {
 
 const SWEEP_INTERVAL_MS = 10 * 60 * 1000;
 setInterval(() => {
-  sweepIdleBuckets(Date.now());
+  try {
+    sweepIdleBuckets(Date.now());
+  } catch (err) {
+    console.error("message rate limiter sweep failed:", err);
+  }
 }, SWEEP_INTERVAL_MS).unref();
