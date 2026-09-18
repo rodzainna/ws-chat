@@ -19,15 +19,22 @@ export function findMembership(
   });
 }
 
+// the one access check for both WS and GraphQL, so they can't drift.
+// Also checks the room isn't deleted and the user is still active, since a
+// WS socket was only authenticated once, at connect time.
 export async function canAccessRoom(
   userId: string,
   roomId: string,
 ): Promise<boolean> {
   const membership = await getPrisma().roomMember.findUnique({
     where: { roomId_userId: { roomId, userId } },
-    include: { room: true },
+    include: { room: true, user: true },
   });
-  return membership !== null && membership.room.deletedAt === null;
+  return (
+    membership !== null &&
+    membership.room.deletedAt === null &&
+    membership.user.isActive
+  );
 }
 
 export function createRoomWithOwner(input: {
