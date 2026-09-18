@@ -115,18 +115,19 @@ async function handleMessage(
     }
 
     case "send": {
-      if (
-        !requireRoomMembership(socket, registry, message.roomId, "sending to")
-      ) {
-        return;
-      }
-
+      // before the membership check, so rejected sends still cost a token
       if (!tryConsumeMessageToken(userId)) {
         send(socket, {
           type: "error",
           code: "RATE_LIMITED",
           message: "You're sending messages too fast — slow down a bit",
         });
+        return;
+      }
+
+      if (
+        !requireRoomMembership(socket, registry, message.roomId, "sending to")
+      ) {
         return;
       }
 

@@ -12,6 +12,14 @@ function getWindowMs(): number {
   return cachedWindowMs;
 }
 
+let cachedRefillRate: number | undefined;
+function getRefillRate(): number {
+  cachedRefillRate ??= getCapacity() / getWindowMs();
+  return cachedRefillRate;
+}
+
+getRefillRate();
+
 type Bucket = { tokens: number; lastRefill: number };
 
 const buckets = new Map<string, Bucket>();
@@ -19,9 +27,10 @@ const buckets = new Map<string, Bucket>();
 function refill(bucket: Bucket, now: number): void {
   const elapsedMs = now - bucket.lastRefill;
   if (elapsedMs <= 0) return;
-  const capacity = getCapacity();
-  const refillRate = capacity / getWindowMs();
-  bucket.tokens = Math.min(capacity, bucket.tokens + elapsedMs * refillRate);
+  bucket.tokens = Math.min(
+    getCapacity(),
+    bucket.tokens + elapsedMs * getRefillRate(),
+  );
   bucket.lastRefill = now;
 }
 

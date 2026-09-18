@@ -78,6 +78,7 @@ export function RoomPage() {
   const [editDraft, setEditDraft] = useState("");
   const [socketError, setSocketError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const lastSentDraftRef = useRef("");
 
   const { data, loading } = useQuery<{
     messages: {
@@ -148,10 +149,14 @@ export function RoomPage() {
           ),
         );
       },
-      onError: (code, message) =>
-        code === "RATE_LIMITED"
-          ? toast.warning(message)
-          : setSocketError(message),
+      onError: (code, message) => {
+        if (code === "RATE_LIMITED") {
+          toast.warning(message);
+          setDraft((current) => current || lastSentDraftRef.current);
+          return;
+        }
+        setSocketError(message);
+      },
     },
   );
 
@@ -167,6 +172,8 @@ export function RoomPage() {
   function handleSend(event: FormEvent) {
     event.preventDefault();
     if (!draft.trim()) return;
+    setSocketError(null);
+    lastSentDraftRef.current = draft;
     sendMessage(draft);
     setDraft("");
   }
