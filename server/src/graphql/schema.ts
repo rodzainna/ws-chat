@@ -24,12 +24,14 @@ export const typeDefs = `#graphql
     isPrivate: Boolean!
     createdBy: ID!
     createdAt: DateTime!
+    isMember: Boolean!
   }
 
   type Message {
     id: ID!
     roomId: ID!
     userId: ID!
+    username: String!
     content: String!
     createdAt: DateTime!
     editedAt: DateTime
@@ -108,6 +110,7 @@ export const typeDefs = `#graphql
 
   type Query {
     me: User
+    rooms: [Room!]!
     messages(roomId: ID!, first: Int, after: String): MessageConnection!
   }
 

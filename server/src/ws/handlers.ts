@@ -14,6 +14,7 @@ import {
   findMessageById,
   editMessage,
   softDeleteMessage,
+  type MessageWithAuthor,
 } from "../db/messages.js";
 import { validateMessageContent } from "../messages/validation.js";
 import type { Message } from "../generated/prisma/client.js";
@@ -22,11 +23,12 @@ function send(socket: WebSocket, message: ServerMessage): void {
   socket.send(JSON.stringify(message));
 }
 
-function toChatMessage(message: Message): ChatMessage {
+function toChatMessage(message: MessageWithAuthor): ChatMessage {
   return {
     id: message.id,
     roomId: message.roomId,
     userId: message.userId,
+    username: message.user.username,
     content: message.content,
     createdAt: message.createdAt.toISOString(),
     editedAt: message.editedAt ? message.editedAt.toISOString() : null,
@@ -43,7 +45,7 @@ function requireRoomMembership(
   send(socket, {
     type: "error",
     code: "NOT_IN_ROOM",
-    message: `You must join "${roomId}" before ${verb} it`,
+    message: `You must join this room before ${verb} it`,
   });
   return false;
 }
@@ -95,7 +97,7 @@ async function handleMessage(
         send(socket, {
           type: "error",
           code: "FORBIDDEN",
-          message: `You are not a member of room "${message.roomId}"`,
+          message: "You are not a member of this room",
         });
         return;
       }

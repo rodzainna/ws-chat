@@ -59,3 +59,16 @@ export function addMember(roomId: string, userId: string): Promise<RoomMember> {
     data: { roomId, userId, role: "MEMBER" },
   });
 }
+
+export function findVisibleRooms(userId: string) {
+  return getPrisma().room.findMany({
+    where: {
+      deletedAt: null,
+      OR: [{ isPrivate: false }, { members: { some: { userId } } }],
+    },
+    include: {
+      members: { where: { userId }, select: { userId: true } },
+    },
+    orderBy: { createdAt: "asc" },
+  });
+}

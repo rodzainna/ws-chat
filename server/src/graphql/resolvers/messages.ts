@@ -1,15 +1,14 @@
 import { GraphQLError } from "graphql";
 import { requireActiveUser } from "../currentUser.js";
 import { canAccessRoom } from "../../db/rooms.js";
-import { findMessagesPage } from "../../db/messages.js";
-import type { Message } from "../../generated/prisma/client.js";
+import { findMessagesPage, type MessageWithAuthor } from "../../db/messages.js";
 import type { GraphQLContext } from "../context.js";
 
 const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 50;
 
 type MessageConnection = {
-  edges: { cursor: string; node: Message }[];
+  edges: { cursor: string; node: MessageWithAuthor }[];
   pageInfo: { hasNextPage: boolean; endCursor: string | null };
 };
 

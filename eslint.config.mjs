@@ -1,5 +1,7 @@
 import tseslint from "typescript-eslint";
 import eslintConfigPrettier from "eslint-config-prettier";
+import reactHooks from "eslint-plugin-react-hooks";
+import reactRefresh from "eslint-plugin-react-refresh";
 
 export default tseslint.config(
   {
@@ -11,7 +13,7 @@ export default tseslint.config(
     ],
   },
   {
-    files: ["**/*.ts"],
+    files: ["**/*.ts", "**/*.tsx"],
     extends: [tseslint.configs.recommendedTypeChecked],
     languageOptions: {
       parserOptions: {
@@ -20,6 +22,17 @@ export default tseslint.config(
         },
         tsconfigRootDir: import.meta.dirname,
       },
+    },
+  },
+  {
+    files: ["client/**/*.tsx", "client/**/*.ts"],
+    extends: [reactHooks.configs.flat["recommended-latest"]],
+    plugins: { "react-refresh": reactRefresh },
+    rules: {
+      "react-refresh/only-export-components": [
+        "warn",
+        { allowConstantExport: true },
+      ],
     },
   },
   eslintConfigPrettier,
