@@ -1,12 +1,15 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { useParams } from "react-router";
 import { gql, useQuery } from "@apollo/client";
-import { AppHeader } from "@/components/AppHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/auth/AuthContext";
 import { useChatSocket, type WsChatMessage } from "@/ws/useChatSocket";
+import { ROOMS_QUERY } from "@/components/RoomSidebar";
+
+type Room = { id: string; name: string; isPrivate: boolean };
 
 type ChatMessage = {
   id: string;
@@ -37,6 +40,8 @@ const ROOM_MESSAGES_QUERY = gql`
 export function RoomPage() {
   const { roomId } = useParams<{ roomId: string }>();
   const { user } = useAuth();
+  const { data: roomsData } = useQuery<{ rooms: Room[] }>(ROOMS_QUERY);
+  const room = roomsData?.rooms.find((r) => r.id === roomId);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const [draft, setDraft] = useState("");
@@ -141,8 +146,11 @@ export function RoomPage() {
   if (!roomId) return null;
 
   return (
-    <div className="flex h-svh flex-col">
-      <AppHeader />
+    <div className="flex h-full flex-1 flex-col overflow-hidden">
+      <div className="flex items-center gap-2 border-b px-4 py-3">
+        <span className="font-medium"># {room?.name ?? "…"}</span>
+        {room?.isPrivate && <Badge variant="secondary">Private</Badge>}
+      </div>
       <ScrollArea className="flex-1 px-4">
         <div className="mx-auto max-w-2xl space-y-3 py-4">
           {loading && !historyLoaded && (
