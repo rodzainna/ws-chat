@@ -15,6 +15,7 @@ type Room = { id: string; name: string; isPrivate: boolean };
 type ChatMessage = {
   id: string;
   userId: string;
+  username: string;
   content: string;
   createdAt: string;
   editedAt: string | null;
@@ -28,6 +29,7 @@ const ROOM_MESSAGES_QUERY = gql`
         node {
           id
           userId
+          username
           content
           createdAt
           editedAt
@@ -57,6 +59,7 @@ export function RoomPage() {
         node: {
           id: string;
           userId: string;
+          username: string;
           content: string;
           createdAt: string;
           editedAt: string | null;
@@ -77,6 +80,7 @@ export function RoomPage() {
       data.messages.edges.map(({ node }) => ({
         id: node.id,
         userId: node.userId,
+        username: node.username,
         content: node.content,
         createdAt: node.createdAt,
         editedAt: node.editedAt,
@@ -153,7 +157,7 @@ export function RoomPage() {
         {room?.isPrivate && <Badge variant="secondary">Private</Badge>}
       </div>
       <ScrollArea className="flex-1 px-4">
-        <div className="mx-auto max-w-2xl space-y-3 py-4">
+        <div className="mx-auto max-w-full space-y-3 py-4">
           {loading && !historyLoaded && (
             <p className="text-muted-foreground">Loading messages…</p>
           )}
@@ -173,11 +177,14 @@ export function RoomPage() {
                   isOwn ? "items-end" : "items-start",
                 )}
               >
-                {!isOwn && (
-                  <span className="mb-1 px-1 text-xs font-medium text-muted-foreground">
-                    {message.userId.slice(0, 8)}
+                <div className="mb-1 flex items-center gap-2 px-1 text-xs text-muted-foreground">
+                  {!isOwn && (
+                    <span className="font-medium">{message.username}</span>
+                  )}
+                  <span>
+                    {new Date(message.createdAt).toLocaleTimeString()}
                   </span>
-                )}
+                </div>
 
                 {isEditing ? (
                   <form
@@ -214,9 +221,6 @@ export function RoomPage() {
                 )}
 
                 <div className="mt-1 flex items-center gap-2 px-1 text-xs text-muted-foreground">
-                  <span>
-                    {new Date(message.createdAt).toLocaleTimeString()}
-                  </span>
                   {message.editedAt && !message.deleted && (
                     <span>(edited)</span>
                   )}
