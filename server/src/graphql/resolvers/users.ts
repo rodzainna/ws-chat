@@ -1,32 +1,27 @@
 import { GraphQLError } from "graphql";
 import { requireActiveUser } from "../currentUser.js";
-import { canAccessRoom } from "../../db/rooms.js";
-import { findMessagesPage, type MessageWithAuthor } from "../../db/messages.js";
+import { findUsersPage } from "../../db/users.js";
 import type { GraphQLContext } from "../context.js";
+import type { User } from "../../generated/prisma/client.js";
 import { encodeCursor, decodeCursor } from "../cursor.js";
 
 const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 50;
 
-type MessageConnection = {
-  edges: { cursor: string; node: MessageWithAuthor }[];
+type UserConnection = {
+  edges: { cursor: string; node: User }[];
   pageInfo: { hasNextPage: boolean; endCursor: string | null };
 };
 
-export async function messages(
+export async function users(
   _parent: unknown,
-  {
-    roomId,
-    first,
-    after,
-  }: { roomId: string; first?: number | null; after?: string | null },
+  { first, after }: { first?: number | null; after?: string | null },
   context: GraphQLContext,
-): Promise<MessageConnection> {
-  const user = await requireActiveUser(context);
+): Promise<UserConnection> {
+  const caller = await requireActiveUser(context);
 
-  const allowed = await canAccessRoom(user.id, roomId);
-  if (!allowed) {
-    throw new GraphQLError("You are not a member of this room", {
+  if (caller.globalRole !== "ADMIN") {
+    throw new GraphQLError("Only an admin can list users", {
       extensions: { code: "FORBIDDEN" },
     });
   }
@@ -40,19 +35,12 @@ export async function messages(
   const pageSize = Math.min(requestedFirst, MAX_PAGE_SIZE);
   const afterId = after ? decodeCursor(after) : undefined;
 
-  const rows = await findMessagesPage({
-    roomId,
-    take: pageSize + 1,
-    afterId,
-  });
+  const rows = await findUsersPage({ take: pageSize + 1, afterId });
   const hasNextPage = rows.length > pageSize;
   const page = hasNextPage ? rows.slice(0, pageSize) : rows;
 
   return {
-    edges: page.map((message) => ({
-      cursor: encodeCursor(message.id),
-      node: message,
-    })),
+    edges: page.map((user) => ({ cursor: encodeCursor(user.id), node: user })),
     pageInfo: {
       hasNextPage,
       endCursor:

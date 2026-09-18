@@ -26,6 +26,7 @@ export type ServerMessage =
       editedAt: string;
     }
   | { type: "message_deleted"; messageId: string }
+  | { type: "room_deleted"; roomId: string }
   | { type: "error"; code: string; message: string };
 
 type ParseResult =

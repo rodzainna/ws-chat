@@ -249,9 +249,10 @@ async function handleMessage(
   }
 }
 
-export function registerWsHandlers(wss: WebSocketServer): void {
-  const registry = new RoomRegistry();
-
+export function registerWsHandlers(
+  wss: WebSocketServer,
+  registry: RoomRegistry,
+): void {
   wss.on("connection", (socket: WebSocket, request: IncomingMessage) => {
     const userId = (request as AuthenticatedRequest).userId;
     if (!userId) {

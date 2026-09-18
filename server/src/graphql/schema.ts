@@ -54,6 +54,16 @@ export const typeDefs = `#graphql
     pageInfo: PageInfo!
   }
 
+  type UserEdge {
+    cursor: String!
+    node: User!
+  }
+
+  type UserConnection {
+    edges: [UserEdge!]!
+    pageInfo: PageInfo!
+  }
+
   type UserError {
     field: [String!]
     message: String!
@@ -109,10 +119,31 @@ export const typeDefs = `#graphql
     userErrors: [UserError!]!
   }
 
+  type DeleteRoomPayload {
+    room: Room
+    userErrors: [UserError!]!
+  }
+
+  type DeleteMessagePayload {
+    message: Message
+    userErrors: [UserError!]!
+  }
+
+  type SetGlobalRolePayload {
+    user: User
+    userErrors: [UserError!]!
+  }
+
+  type DeactivateUserPayload {
+    user: User
+    userErrors: [UserError!]!
+  }
+
   type Query {
     me: User
     rooms: [Room!]!
     messages(roomId: ID!, first: Int, after: String): MessageConnection!
+    users(first: Int, after: String): UserConnection!
   }
 
   type Mutation {
@@ -123,5 +154,9 @@ export const typeDefs = `#graphql
     createRoom(input: CreateRoomInput!): CreateRoomPayload!
     joinRoom(roomId: ID!): JoinRoomPayload!
     addRoomMember(roomId: ID!, username: String!): AddRoomMemberPayload!
+    deleteRoom(roomId: ID!): DeleteRoomPayload!
+    deleteMessage(messageId: ID!): DeleteMessagePayload!
+    setGlobalRole(userId: ID!, role: GlobalRole!): SetGlobalRolePayload!
+    deactivateUser(userId: ID!): DeactivateUserPayload!
   }
 `;

@@ -55,6 +55,23 @@ export class RoomRegistry {
     this.socketsToRooms.delete(socket);
   }
 
+  evictRoom(roomId: string): void {
+    const sockets = this.roomsToSockets.get(roomId);
+    if (!sockets) return;
+
+    for (const socket of sockets) {
+      const rooms = this.socketsToRooms.get(socket);
+      if (rooms) {
+        rooms.delete(roomId);
+        if (rooms.size === 0) {
+          this.socketsToRooms.delete(socket);
+        }
+      }
+    }
+
+    this.roomsToSockets.delete(roomId);
+  }
+
   isMember(socket: WebSocket, roomId: string): boolean {
     return this.socketsToRooms.get(socket)?.has(roomId) ?? false;
   }
