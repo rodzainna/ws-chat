@@ -5,6 +5,7 @@ import type { ConnectionRegistry } from "./connectionRegistry.js";
 import type { AuthenticatedRequest, AuthenticatedWebSocket } from "./types.js";
 import {
   parseClientMessage,
+  sendServerMessage as send,
   type ChatMessage,
   type ClientMessage,
   type ServerMessage,
@@ -21,10 +22,6 @@ import { validateMessageContent } from "../messages/validation.js";
 import { extractMentionedUsernames } from "../messages/mentions.js";
 import { tryConsumeMessageToken } from "../messages/rateLimit.js";
 import type { Message } from "../generated/prisma/client.js";
-
-function send(socket: WebSocket, message: ServerMessage): void {
-  socket.send(JSON.stringify(message));
-}
 
 function toChatMessage(message: MessageWithAuthor): ChatMessage {
   return {

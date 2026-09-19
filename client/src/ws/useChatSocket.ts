@@ -24,9 +24,11 @@ type ServerMessage =
   | { type: "session_expired"; reason: "deactivated" }
   | { type: "error"; code: string; message: string };
 
-const SESSION_EXPIRED_MESSAGES: Record<"deactivated", string> = {
+const SESSION_EXPIRED_MESSAGES: Record<string, string> = {
   deactivated: "Your account has been deactivated.",
 };
+const DEFAULT_SESSION_EXPIRED_MESSAGE =
+  "Your session has ended — reload the page.";
 
 type ChatSocketHandlers = {
   onJoined?: () => void;
@@ -78,7 +80,8 @@ export function useChatSocket(roomId: string, handlers: ChatSocketHandlers) {
           closingIntentionally = true;
           handlers.onError?.(
             "SESSION_EXPIRED",
-            SESSION_EXPIRED_MESSAGES[data.reason],
+            SESSION_EXPIRED_MESSAGES[data.reason] ??
+              DEFAULT_SESSION_EXPIRED_MESSAGE,
           );
           return;
         case "error":
