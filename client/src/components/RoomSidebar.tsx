@@ -204,13 +204,13 @@ export function RoomSidebar() {
           </NavLink>
         ))}
 
-        {memberRooms.length === 0 && otherRooms.length === 0 && (
+        {memberRooms.length === 0 && (!canJoin || otherRooms.length === 0) && (
           <p className="p-2 text-sm text-muted-foreground">
             No rooms yet — create one to get started.
           </p>
         )}
 
-        {otherRooms.length > 0 && (
+        {canJoin && otherRooms.length > 0 && (
           <div className="mt-2">
             <button
               type="button"
@@ -236,17 +236,15 @@ export function RoomSidebar() {
                     className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-muted-foreground"
                   >
                     <span className="truncate"># {room.name}</span>
-                    {canJoin && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="ml-auto shrink-0"
-                        disabled={joining}
-                        onClick={() => void handleJoin(room)}
-                      >
-                        Join
-                      </Button>
-                    )}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="ml-auto shrink-0"
+                      disabled={joining}
+                      onClick={() => void handleJoin(room)}
+                    >
+                      Join
+                    </Button>
                   </div>
                 ))}
               </div>

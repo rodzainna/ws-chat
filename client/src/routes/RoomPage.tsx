@@ -57,6 +57,28 @@ const ROOM_MESSAGES_QUERY = gql`
   }
 `;
 
+function formatMessageTimestamp(iso: string): string {
+  const date = new Date(iso);
+  const now = new Date();
+  const isToday =
+    date.getFullYear() === now.getFullYear() &&
+    date.getMonth() === now.getMonth() &&
+    date.getDate() === now.getDate();
+
+  const time = date.toLocaleTimeString([], {
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
+  if (isToday) return time;
+
+  const datePart = date.toLocaleDateString([], {
+    month: "numeric",
+    day: "numeric",
+  });
+  return `${datePart} ${time}`;
+}
+
 function renderContentWithMentions(
   content: string,
   mentionedUsernames: string[],
@@ -270,13 +292,7 @@ export function RoomPage() {
                   {!isOwn && (
                     <span className="font-medium">{message.username}</span>
                   )}
-                  <span>
-                    {new Date(message.createdAt).toLocaleTimeString([], {
-                      hour: "numeric",
-                      minute: "2-digit",
-                      hour12: true,
-                    })}
-                  </span>
+                  <span>{formatMessageTimestamp(message.createdAt)}</span>
                   <div className="flex items-center gap-2 px-1 text-xs text-muted-foreground">
                     {message.editedAt && !message.deleted && (
                       <span>(edited)</span>
