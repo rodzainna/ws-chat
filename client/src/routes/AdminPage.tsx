@@ -1,4 +1,5 @@
 import { AdminUsersSection } from "@/components/AdminUsersSection";
+import { AdminRoomsSection } from "@/components/AdminRoomsSection";
 
 export function AdminPage() {
   return (
@@ -7,6 +8,10 @@ export function AdminPage() {
       <section className="space-y-3">
         <h2 className="text-sm font-medium text-muted-foreground">Users</h2>
         <AdminUsersSection />
+      </section>
+      <section className="space-y-3">
+        <h2 className="text-sm font-medium text-muted-foreground">Rooms</h2>
+        <AdminRoomsSection />
       </section>
     </div>
   );
