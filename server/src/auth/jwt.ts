@@ -1,5 +1,5 @@
 import ms from "ms";
-import { SignJWT, jwtVerify, errors } from "jose";
+import { SignJWT, jwtVerify, errors, type JWTPayload } from "jose";
 
 const ALGORITHM = "HS256";
 const MIN_SECRET_BYTES = 32;
@@ -53,16 +53,35 @@ export function issueToken(userId: string): Promise<string> {
     .sign(getSecret());
 }
 
-export async function verifyToken(token: string): Promise<string | null> {
+async function verifyAndDecode(token: string): Promise<JWTPayload | null> {
   try {
     const { payload } = await jwtVerify(token, getSecret(), {
       algorithms: [ALGORITHM],
     });
-    return typeof payload.sub === "string" ? payload.sub : null;
+    return payload;
   } catch (err) {
     if (err instanceof errors.JOSEError) {
       return null;
     }
     throw err;
   }
+}
+
+export async function verifyToken(token: string): Promise<string | null> {
+  const payload = await verifyAndDecode(token);
+  return payload && typeof payload.sub === "string" ? payload.sub : null;
+}
+
+export async function verifyTokenWithExpiry(
+  token: string,
+): Promise<{ userId: string; expiresAt: number } | null> {
+  const payload = await verifyAndDecode(token);
+  if (
+    !payload ||
+    typeof payload.sub !== "string" ||
+    typeof payload.exp !== "number"
+  ) {
+    return null;
+  }
+  return { userId: payload.sub, expiresAt: payload.exp * 1000 };
 }

@@ -247,20 +247,54 @@ async function handleMessage(
   }
 }
 
+const HEARTBEAT_INTERVAL_MS = 30_000;
+
+// a socket that didn't answer the previous ping is dead (dropped network,
+// killed client) and gets terminated; its "close" handler does the cleanup
+function startHeartbeat(wss: WebSocketServer): void {
+  setInterval(() => {
+    for (const socket of wss.clients) {
+      const authSocket = socket as AuthenticatedWebSocket;
+      if (authSocket.isAlive === false) {
+        authSocket.terminate();
+        continue;
+      }
+      authSocket.isAlive = false;
+      authSocket.ping();
+    }
+  }, HEARTBEAT_INTERVAL_MS).unref();
+}
+
 export function registerWsHandlers(
   wss: WebSocketServer,
   registry: RoomRegistry,
   connectionRegistry: ConnectionRegistry,
 ): void {
+  startHeartbeat(wss);
+
   wss.on("connection", (socket: WebSocket, request: IncomingMessage) => {
     const userId = (request as AuthenticatedRequest).userId;
-    if (!userId) {
+    const expiresAt = (request as AuthenticatedRequest).expiresAt;
+    if (!userId || !expiresAt) {
       socket.close(1008, "Authentication required");
       return;
     }
-    (socket as AuthenticatedWebSocket).userId = userId;
+    const authSocket = socket as AuthenticatedWebSocket;
+    authSocket.userId = userId;
+    authSocket.isAlive = true;
+    socket.on("pong", () => {
+      authSocket.isAlive = true;
+    });
 
     connectionRegistry.register(userId, socket);
+
+    const expiryTimer = setTimeout(
+      () => {
+        send(socket, { type: "session_expired", reason: "token_expired" });
+        socket.close(4001, "token_expired");
+      },
+      Math.max(expiresAt - Date.now(), 0),
+    ).unref();
 
     console.log(`client connected (user ${userId})`);
 
@@ -284,6 +318,7 @@ export function registerWsHandlers(
     });
 
     socket.on("close", () => {
+      clearTimeout(expiryTimer);
       registry.leaveAll(socket);
       connectionRegistry.unregister(userId, socket);
       console.log("client disconnected");
