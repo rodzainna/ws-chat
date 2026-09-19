@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { gql, useMutation, useQuery } from "@apollo/client";
+import { gql, useApolloClient, useMutation } from "@apollo/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -9,6 +9,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { AdminPagination } from "@/components/AdminPagination";
+import { usePagedConnection } from "@/hooks/usePagedConnection";
 import { useAuth } from "@/auth/useAuth";
 
 type GlobalRole = "ADMIN" | "USER" | "RESTRICTED";
@@ -29,10 +31,11 @@ type UsersQueryResult = {
   users: {
     edges: { cursor: string; node: AdminUser }[];
     pageInfo: { hasNextPage: boolean; endCursor: string | null };
+    totalCount: number;
   };
 };
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 10;
 
 const USERS_QUERY = gql`
   query AdminUsers($first: Int, $after: String) {
@@ -52,6 +55,7 @@ const USERS_QUERY = gql`
         hasNextPage
         endCursor
       }
+      totalCount
     }
   }
 `;
@@ -90,10 +94,29 @@ const ROLES: GlobalRole[] = ["ADMIN", "USER", "RESTRICTED"];
 
 export function AdminUsersSection() {
   const { user: currentUser } = useAuth();
-  const { data, loading, error, fetchMore } = useQuery<UsersQueryResult>(
-    USERS_QUERY,
-    { variables: { first: PAGE_SIZE } },
+  const client = useApolloClient();
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const {
+    items: users,
+    currentPage,
+    totalPages,
+    setCurrentPage,
+    loading,
+    error,
+  } = usePagedConnection<AdminUser>(
+    async (after) => {
+      const result = await client.query<UsersQueryResult>({
+        query: USERS_QUERY,
+        variables: { first: PAGE_SIZE, after },
+        fetchPolicy: "network-only",
+      });
+      return result.data.users;
+    },
+    PAGE_SIZE,
+    refreshKey,
   );
+
   const [setGlobalRole] = useMutation<
     {
       setGlobalRole: { user: AdminUser | null; userErrors: UserError[] };
@@ -109,7 +132,6 @@ export function AdminUsersSection() {
 
   const [pendingUserIds, setPendingUserIds] = useState<Set<string>>(new Set());
   const [rowErrors, setRowErrors] = useState<Record<string, string>>({});
-  const [loadingMore, setLoadingMore] = useState(false);
   const [optimisticRoles, setOptimisticRoles] = useState<
     Record<string, GlobalRole>
   >({});
@@ -139,6 +161,8 @@ export function AdminUsersSection() {
           ...prev,
           [userId]: payload?.userErrors[0]?.message ?? fallbackMessage,
         }));
+      } else {
+        setRefreshKey((key) => key + 1);
       }
     } catch {
       setRowErrors((prev) => ({
@@ -175,38 +199,17 @@ export function AdminUsersSection() {
     );
   }
 
-  async function handleLoadMore() {
-    const pageInfo = data?.users.pageInfo;
-    if (!pageInfo?.hasNextPage) return;
-    setLoadingMore(true);
-    await fetchMore({
-      variables: { first: PAGE_SIZE, after: pageInfo.endCursor },
-      updateQuery: (prev, { fetchMoreResult }) => {
-        if (!fetchMoreResult) return prev;
-        return {
-          users: {
-            ...fetchMoreResult.users,
-            edges: [...prev.users.edges, ...fetchMoreResult.users.edges],
-          },
-        };
-      },
-    });
-    setLoadingMore(false);
-  }
-
-  if (loading && !data) {
+  if (loading && users.length === 0) {
     return <p className="text-sm text-muted-foreground">Loading users…</p>;
   }
   if (error) {
     return <p className="text-sm text-destructive">Failed to load users.</p>;
   }
 
-  const edges = data?.users.edges ?? [];
-
   return (
     <div className="space-y-3">
       <div className="divide-y rounded-lg border">
-        {edges.map(({ node: u }) => {
+        {users.map((u) => {
           const isSelf = u.id === currentUser?.id;
           const isPending = pendingUserIds.has(u.id);
           const displayedRole = optimisticRoles[u.id] ?? u.globalRole;
@@ -259,20 +262,15 @@ export function AdminUsersSection() {
             </div>
           );
         })}
-        {edges.length === 0 && (
+        {users.length === 0 && (
           <p className="p-3 text-sm text-muted-foreground">No users found.</p>
         )}
       </div>
-      {data?.users.pageInfo.hasNextPage && (
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={loadingMore}
-          onClick={() => void handleLoadMore()}
-        >
-          {loadingMore ? "Loading…" : "Load more"}
-        </Button>
-      )}
+      <AdminPagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        onPageChange={setCurrentPage}
+      />
     </div>
   );
 }

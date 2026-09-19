@@ -1,7 +1,9 @@
 import { useState } from "react";
-import { gql, useMutation, useQuery } from "@apollo/client";
+import { gql, useApolloClient, useMutation } from "@apollo/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { AdminPagination } from "@/components/AdminPagination";
+import { usePagedConnection } from "@/hooks/usePagedConnection";
 
 type AdminRoom = {
   id: string;
@@ -17,10 +19,11 @@ type AdminRoomsQueryResult = {
   adminRooms: {
     edges: { cursor: string; node: AdminRoom }[];
     pageInfo: { hasNextPage: boolean; endCursor: string | null };
+    totalCount: number;
   };
 };
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 10;
 
 const ADMIN_ROOMS_QUERY = gql`
   query AdminRooms($first: Int, $after: String) {
@@ -39,6 +42,7 @@ const ADMIN_ROOMS_QUERY = gql`
         hasNextPage
         endCursor
       }
+      totalCount
     }
   }
 `;
@@ -58,10 +62,29 @@ const DELETE_ROOM_MUTATION = gql`
 `;
 
 export function AdminRoomsSection() {
-  const { data, loading, error, fetchMore, refetch } =
-    useQuery<AdminRoomsQueryResult>(ADMIN_ROOMS_QUERY, {
-      variables: { first: PAGE_SIZE },
-    });
+  const client = useApolloClient();
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const {
+    items: rooms,
+    currentPage,
+    totalPages,
+    setCurrentPage,
+    loading,
+    error,
+  } = usePagedConnection<AdminRoom>(
+    async (after) => {
+      const result = await client.query<AdminRoomsQueryResult>({
+        query: ADMIN_ROOMS_QUERY,
+        variables: { first: PAGE_SIZE, after },
+        fetchPolicy: "network-only",
+      });
+      return result.data.adminRooms;
+    },
+    PAGE_SIZE,
+    refreshKey,
+  );
+
   const [deleteRoom] = useMutation<
     { deleteRoom: { room: { id: string } | null; userErrors: UserError[] } },
     { roomId: string }
@@ -69,7 +92,6 @@ export function AdminRoomsSection() {
 
   const [pendingRoomIds, setPendingRoomIds] = useState<Set<string>>(new Set());
   const [rowErrors, setRowErrors] = useState<Record<string, string>>({});
-  const [loadingMore, setLoadingMore] = useState(false);
 
   function addPending(roomId: string) {
     setPendingRoomIds((prev) => new Set(prev).add(roomId));
@@ -95,7 +117,7 @@ export function AdminRoomsSection() {
         }));
         return;
       }
-      await refetch();
+      setRefreshKey((key) => key + 1);
     } catch {
       setRowErrors((prev) => ({
         ...prev,
@@ -106,41 +128,17 @@ export function AdminRoomsSection() {
     }
   }
 
-  async function handleLoadMore() {
-    const pageInfo = data?.adminRooms.pageInfo;
-    if (!pageInfo?.hasNextPage) return;
-    setLoadingMore(true);
-    await fetchMore({
-      variables: { first: PAGE_SIZE, after: pageInfo.endCursor },
-      updateQuery: (prev, { fetchMoreResult }) => {
-        if (!fetchMoreResult) return prev;
-        return {
-          adminRooms: {
-            ...fetchMoreResult.adminRooms,
-            edges: [
-              ...prev.adminRooms.edges,
-              ...fetchMoreResult.adminRooms.edges,
-            ],
-          },
-        };
-      },
-    });
-    setLoadingMore(false);
-  }
-
-  if (loading && !data) {
+  if (loading && rooms.length === 0) {
     return <p className="text-sm text-muted-foreground">Loading rooms…</p>;
   }
   if (error) {
     return <p className="text-sm text-destructive">Failed to load rooms.</p>;
   }
 
-  const edges = data?.adminRooms.edges ?? [];
-
   return (
     <div className="space-y-3">
       <div className="divide-y rounded-lg border">
-        {edges.map(({ node: r }) => {
+        {rooms.map((r) => {
           const isPending = pendingRoomIds.has(r.id);
           return (
             <div key={r.id} className="flex flex-col gap-2 p-3">
@@ -168,20 +166,15 @@ export function AdminRoomsSection() {
             </div>
           );
         })}
-        {edges.length === 0 && (
+        {rooms.length === 0 && (
           <p className="p-3 text-sm text-muted-foreground">No rooms found.</p>
         )}
       </div>
-      {data?.adminRooms.pageInfo.hasNextPage && (
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={loadingMore}
-          onClick={() => void handleLoadMore()}
-        >
-          {loadingMore ? "Loading…" : "Load more"}
-        </Button>
-      )}
+      <AdminPagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        onPageChange={setCurrentPage}
+      />
     </div>
   );
 }
