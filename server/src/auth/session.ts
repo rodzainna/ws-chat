@@ -20,14 +20,16 @@ import type { User } from "../generated/prisma/client.js";
 export async function establishSession(
   userId: string,
   res: Response,
-): Promise<void> {
-  const accessToken = await issueToken(userId);
+): Promise<{ accessTokenExpiresAt: Date }> {
+  const { token, expiresAt } = await issueToken(userId);
   const refreshToken = generateRefreshToken();
   await createRefreshTokenRecord(userId, refreshToken);
-  setAuthCookies(res, { accessToken, refreshToken });
+  setAuthCookies(res, { accessToken: token, refreshToken });
+  return { accessTokenExpiresAt: expiresAt };
 }
 
-export type RefreshOutcome = { ok: true; user: User } | { ok: false };
+export type RefreshOutcome =
+  { ok: true; user: User; accessTokenExpiresAt: Date } | { ok: false };
 
 // reuse right after revocation is usually two tabs refreshing at once, not
 // theft, so only reuse outside this window counts as a theft signal
@@ -68,7 +70,8 @@ export async function rotateSession(
     return { ok: false };
   }
 
-  const accessToken = await issueToken(user.id);
+  const { token: accessToken, expiresAt: accessTokenExpiresAt } =
+    await issueToken(user.id);
   const refreshToken = generateRefreshToken();
 
   const rotated = await rotateRefreshToken(row.id, user.id, refreshToken);
@@ -79,5 +82,5 @@ export async function rotateSession(
 
   setAuthCookies(res, { accessToken, refreshToken });
 
-  return { ok: true, user };
+  return { ok: true, user, accessTokenExpiresAt };
 }

@@ -16,7 +16,7 @@ import type { AuthenticatedRequest } from "./ws/types.js";
 import { isDevelopment } from "./env.js";
 import { disconnectPrisma } from "./db/prisma.js";
 import { findActiveUserById } from "./db/users.js";
-import { verifyToken, verifyTokenWithExpiry } from "./auth/jwt.js";
+import { verifyToken } from "./auth/jwt.js";
 import { ACCESS_TOKEN_COOKIE } from "./auth/cookies.js";
 import { typeDefs } from "./graphql/schema.js";
 import { resolvers } from "./graphql/resolvers.js";
@@ -64,7 +64,7 @@ const wss = new WebSocketServer({
       callback(false, 401, "Authentication required");
       return;
     }
-    verifyTokenWithExpiry(token)
+    verifyToken(token)
       .then(async (result) => {
         if (!result) {
           callback(false, 401, "Authentication required");
@@ -127,14 +127,26 @@ app.use(
     context: async ({ req, res }) => {
       const token: unknown = req.cookies[ACCESS_TOKEN_COOKIE];
       let userId: string | null = null;
+      let accessTokenExpiresAt: Date | null = null;
       if (typeof token === "string") {
         try {
-          userId = await verifyToken(token);
+          const result = await verifyToken(token);
+          if (result) {
+            userId = result.userId;
+            accessTokenExpiresAt = new Date(result.expiresAt);
+          }
         } catch (err) {
           console.error("Unexpected error verifying access token:", err);
         }
       }
-      return { req, res, userId, roomRegistry, connectionRegistry };
+      return {
+        req,
+        res,
+        userId,
+        accessTokenExpiresAt,
+        roomRegistry,
+        connectionRegistry,
+      };
     },
   }),
 );

@@ -94,11 +94,13 @@ export const typeDefs = `#graphql
 
   type RegisterPayload {
     user: User
+    accessTokenExpiresAt: DateTime
     userErrors: [UserError!]!
   }
 
   type LoginPayload {
     user: User
+    accessTokenExpiresAt: DateTime
     userErrors: [UserError!]!
   }
 
@@ -108,6 +110,7 @@ export const typeDefs = `#graphql
 
   type RefreshPayload {
     user: User
+    accessTokenExpiresAt: DateTime
     userErrors: [UserError!]!
   }
 
@@ -153,6 +156,7 @@ export const typeDefs = `#graphql
 
   type Query {
     me: User
+    accessTokenExpiresAt: DateTime
     rooms: [Room!]!
     messages(roomId: ID!, first: Int, after: String): MessageConnection!
     users(first: Int, after: String): UserConnection!
