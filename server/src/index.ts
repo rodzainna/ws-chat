@@ -16,7 +16,7 @@ import type { AuthenticatedRequest } from "./ws/types.js";
 import { isDevelopment } from "./env.js";
 import { disconnectPrisma } from "./db/prisma.js";
 import { findActiveUserById } from "./db/users.js";
-import { verifyToken } from "./auth/jwt.js";
+import { verifyToken, verifyTokenWithExpiry } from "./auth/jwt.js";
 import { ACCESS_TOKEN_COOKIE } from "./auth/cookies.js";
 import { typeDefs } from "./graphql/schema.js";
 import { resolvers } from "./graphql/resolvers.js";
@@ -64,18 +64,20 @@ const wss = new WebSocketServer({
       callback(false, 401, "Authentication required");
       return;
     }
-    verifyToken(token)
-      .then(async (userId) => {
-        if (!userId) {
+    verifyTokenWithExpiry(token)
+      .then(async (result) => {
+        if (!result) {
           callback(false, 401, "Authentication required");
           return;
         }
+        const { userId, expiresAt } = result;
         const user = await findActiveUserById(userId);
         if (!user) {
           callback(false, 401, "Authentication required");
           return;
         }
         (info.req as AuthenticatedRequest).userId = userId;
+        (info.req as AuthenticatedRequest).expiresAt = expiresAt;
         callback(true);
       })
       .catch((err: unknown) => {
