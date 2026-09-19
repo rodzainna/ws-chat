@@ -1,6 +1,7 @@
 import type { IncomingMessage } from "node:http";
 import type { WebSocket, WebSocketServer } from "ws";
 import { RoomRegistry } from "./roomRegistry.js";
+import type { ConnectionRegistry } from "./connectionRegistry.js";
 import type { AuthenticatedRequest, AuthenticatedWebSocket } from "./types.js";
 import {
   parseClientMessage,
@@ -252,6 +253,7 @@ async function handleMessage(
 export function registerWsHandlers(
   wss: WebSocketServer,
   registry: RoomRegistry,
+  connectionRegistry: ConnectionRegistry,
 ): void {
   wss.on("connection", (socket: WebSocket, request: IncomingMessage) => {
     const userId = (request as AuthenticatedRequest).userId;
@@ -260,6 +262,8 @@ export function registerWsHandlers(
       return;
     }
     (socket as AuthenticatedWebSocket).userId = userId;
+
+    connectionRegistry.register(userId, socket);
 
     console.log(`client connected (user ${userId})`);
 
@@ -284,6 +288,7 @@ export function registerWsHandlers(
 
     socket.on("close", () => {
       registry.leaveAll(socket);
+      connectionRegistry.unregister(userId, socket);
       console.log("client disconnected");
     });
 

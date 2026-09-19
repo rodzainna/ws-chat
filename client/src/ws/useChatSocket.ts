@@ -21,7 +21,12 @@ type ServerMessage =
       editedAt: string;
     }
   | { type: "message_deleted"; messageId: string }
+  | { type: "session_expired"; reason: "deactivated" }
   | { type: "error"; code: string; message: string };
+
+const SESSION_EXPIRED_MESSAGES: Record<"deactivated", string> = {
+  deactivated: "Your account has been deactivated.",
+};
 
 type ChatSocketHandlers = {
   onJoined?: () => void;
@@ -68,6 +73,13 @@ export function useChatSocket(roomId: string, handlers: ChatSocketHandlers) {
           return;
         case "message_deleted":
           handlers.onDeleted?.(data.messageId);
+          return;
+        case "session_expired":
+          closingIntentionally = true;
+          handlers.onError?.(
+            "SESSION_EXPIRED",
+            SESSION_EXPIRED_MESSAGES[data.reason],
+          );
           return;
         case "error":
           handlers.onError?.(data.code, data.message);

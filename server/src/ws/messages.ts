@@ -16,6 +16,8 @@ export type ChatMessage = {
   mentionedUsernames: string[];
 };
 
+export type SessionExpiredReason = "deactivated";
+
 export type ServerMessage =
   | { type: "joined"; roomId: string }
   | { type: "message_created"; message: ChatMessage }
@@ -27,6 +29,7 @@ export type ServerMessage =
     }
   | { type: "message_deleted"; messageId: string }
   | { type: "room_deleted"; roomId: string }
+  | { type: "session_expired"; reason: SessionExpiredReason }
   | { type: "error"; code: string; message: string };
 
 type ParseResult =

@@ -63,5 +63,7 @@ export async function deactivateUser(
     };
   }
 
+  context.connectionRegistry.disconnectUser(userId, "deactivated");
+
   return { user, userErrors: [] };
 }
