@@ -65,8 +65,11 @@ export function RoomSidebar() {
   const { data, loading, error, refetch } = useQuery<{ rooms: Room[] }>(
     ROOMS_QUERY,
   );
-  const memberRooms = data?.rooms.filter((room) => room.isMember) ?? [];
-  const otherRooms = data?.rooms.filter((room) => !room.isMember) ?? [];
+  const sortedRooms = [...(data?.rooms ?? [])].sort((a, b) =>
+    a.name.localeCompare(b.name),
+  );
+  const memberRooms = sortedRooms.filter((room) => room.isMember);
+  const otherRooms = sortedRooms.filter((room) => !room.isMember);
 
   const [createRoom, { loading: creating }] = useMutation<
     { createRoom: RoomMutationPayload },

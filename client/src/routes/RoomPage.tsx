@@ -271,7 +271,11 @@ export function RoomPage() {
                     <span className="font-medium">{message.username}</span>
                   )}
                   <span>
-                    {new Date(message.createdAt).toLocaleTimeString()}
+                    {new Date(message.createdAt).toLocaleTimeString([], {
+                      hour: "numeric",
+                      minute: "2-digit",
+                      hour12: true,
+                    })}
                   </span>
                   <div className="flex items-center gap-2 px-1 text-xs text-muted-foreground">
                     {message.editedAt && !message.deleted && (
