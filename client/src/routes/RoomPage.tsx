@@ -195,6 +195,9 @@ export function RoomPage() {
           message.userId === user?.id &&
           !shiftedMessageIdsRef.current.has(message.id)
         ) {
+          if (shiftedMessageIdsRef.current.size > 50) {
+            shiftedMessageIdsRef.current.clear();
+          }
           shiftedMessageIdsRef.current.add(message.id);
           pendingSendsRef.current.shift();
         }

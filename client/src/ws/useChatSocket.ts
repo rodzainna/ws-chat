@@ -53,12 +53,16 @@ export function useChatSocket(roomId: string, handlers: ChatSocketHandlers) {
   const socketRef = useRef<WebSocket | null>(null);
 
   useEffect(() => {
-    function connect(onJoined: () => void): {
+    function connect(
+      onJoined: () => void,
+      onCloseBeforeJoin?: () => void,
+    ): {
       socket: WebSocket;
       markIntentional: () => void;
     } {
       const socket = new WebSocket(wsUrl());
       let closingIntentionally = false;
+      let joined = false;
 
       socket.addEventListener("open", () => {
         socket.send(JSON.stringify({ type: "join", roomId }));
@@ -70,6 +74,7 @@ export function useChatSocket(roomId: string, handlers: ChatSocketHandlers) {
 
         switch (data.type) {
           case "joined":
+            joined = true;
             onJoined();
             handlers.onJoined?.();
             return;
@@ -97,6 +102,10 @@ export function useChatSocket(roomId: string, handlers: ChatSocketHandlers) {
       });
 
       socket.addEventListener("close", () => {
+        if (!joined && onCloseBeforeJoin) {
+          onCloseBeforeJoin();
+          return;
+        }
         if (closingIntentionally) return;
         handlersRef.current.onError?.(
           "CONNECTION_LOST",
@@ -114,13 +123,18 @@ export function useChatSocket(roomId: string, handlers: ChatSocketHandlers) {
 
     const unsubscribe = onSessionRefreshed(() => {
       if (pending) return;
-      pending = connect(() => {
-        active.markIntentional();
-        active.socket.close();
-        socketRef.current = pending!.socket;
-        active = pending!;
-        pending = null;
-      });
+      pending = connect(
+        () => {
+          active.markIntentional();
+          active.socket.close();
+          socketRef.current = pending!.socket;
+          active = pending!;
+          pending = null;
+        },
+        () => {
+          pending = null;
+        },
+      );
     });
 
     return () => {
