@@ -96,3 +96,19 @@ export function findVisibleRooms(userId: string) {
     orderBy: { createdAt: "asc" },
   });
 }
+
+export function findRoomsPage(input: {
+  take: number;
+  afterId?: string;
+  callerId: string;
+}) {
+  return getPrisma().room.findMany({
+    where: { deletedAt: null },
+    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+    take: input.take,
+    ...(input.afterId ? { cursor: { id: input.afterId }, skip: 1 } : {}),
+    include: {
+      members: { where: { userId: input.callerId }, select: { userId: true } },
+    },
+  });
+}

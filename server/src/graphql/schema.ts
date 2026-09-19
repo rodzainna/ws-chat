@@ -64,6 +64,16 @@ export const typeDefs = `#graphql
     pageInfo: PageInfo!
   }
 
+  type RoomEdge {
+    cursor: String!
+    node: Room!
+  }
+
+  type RoomConnection {
+    edges: [RoomEdge!]!
+    pageInfo: PageInfo!
+  }
+
   type UserError {
     field: [String!]
     message: String!
@@ -144,6 +154,7 @@ export const typeDefs = `#graphql
     rooms: [Room!]!
     messages(roomId: ID!, first: Int, after: String): MessageConnection!
     users(first: Int, after: String): UserConnection!
+    adminRooms(first: Int, after: String): RoomConnection!
   }
 
   type Mutation {
