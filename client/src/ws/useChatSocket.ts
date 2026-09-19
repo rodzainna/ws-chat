@@ -26,6 +26,7 @@ type ServerMessage =
       type: "session_expired";
       reason: "deactivated" | "token_expired" | "logged_out";
     }
+  | { type: "presence_changed"; userId: string; online: boolean }
   | { type: "error"; code: string; message: string };
 
 const SESSION_EXPIRED_MESSAGES: Record<string, string> = {
@@ -41,6 +42,7 @@ type ChatSocketHandlers = {
   onCreated?: (message: WsChatMessage) => void;
   onEdited?: (messageId: string, content: string, editedAt: string) => void;
   onDeleted?: (messageId: string) => void;
+  onPresenceChanged?: (userId: string, online: boolean) => void;
   onError?: (code: string, message: string) => void;
 };
 
@@ -90,6 +92,9 @@ export function useChatSocket(roomId: string, handlers: ChatSocketHandlers) {
             return;
           case "message_deleted":
             handlers.onDeleted?.(data.messageId);
+            return;
+          case "presence_changed":
+            handlers.onPresenceChanged?.(data.userId, data.online);
             return;
           case "session_expired":
             closingIntentionally = true;
