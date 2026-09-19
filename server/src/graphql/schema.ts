@@ -62,6 +62,7 @@ export const typeDefs = `#graphql
   type UserConnection {
     edges: [UserEdge!]!
     pageInfo: PageInfo!
+    totalCount: Int!
   }
 
   type RoomEdge {
@@ -72,6 +73,7 @@ export const typeDefs = `#graphql
   type RoomConnection {
     edges: [RoomEdge!]!
     pageInfo: PageInfo!
+    totalCount: Int!
   }
 
   type UserError {

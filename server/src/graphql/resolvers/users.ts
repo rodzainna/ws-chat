@@ -1,16 +1,17 @@
 import { GraphQLError } from "graphql";
 import { requireActiveUser } from "../currentUser.js";
-import { findUsersPage } from "../../db/users.js";
+import { findUsersPage, countUsers } from "../../db/users.js";
 import type { GraphQLContext } from "../context.js";
 import type { User } from "../../generated/prisma/client.js";
 import { encodeCursor, decodeCursor } from "../cursor.js";
 
-const DEFAULT_PAGE_SIZE = 20;
+const DEFAULT_PAGE_SIZE = 10;
 const MAX_PAGE_SIZE = 50;
 
 type UserConnection = {
   edges: { cursor: string; node: User }[];
   pageInfo: { hasNextPage: boolean; endCursor: string | null };
+  totalCount: number;
 };
 
 export async function users(
@@ -35,7 +36,10 @@ export async function users(
   const pageSize = Math.min(requestedFirst, MAX_PAGE_SIZE);
   const afterId = after ? decodeCursor(after) : undefined;
 
-  const rows = await findUsersPage({ take: pageSize + 1, afterId });
+  const [rows, totalCount] = await Promise.all([
+    findUsersPage({ take: pageSize + 1, afterId }),
+    countUsers(),
+  ]);
   const hasNextPage = rows.length > pageSize;
   const page = hasNextPage ? rows.slice(0, pageSize) : rows;
 
@@ -46,5 +50,6 @@ export async function users(
       endCursor:
         page.length > 0 ? encodeCursor(page[page.length - 1].id) : null,
     },
+    totalCount,
   };
 }

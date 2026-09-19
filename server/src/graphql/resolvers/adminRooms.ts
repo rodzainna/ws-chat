@@ -1,10 +1,10 @@
 import { GraphQLError } from "graphql";
 import { requireActiveUser } from "../currentUser.js";
-import { findRoomsPage } from "../../db/rooms.js";
+import { findRoomsPage, countRooms } from "../../db/rooms.js";
 import type { GraphQLContext } from "../context.js";
 import { encodeCursor, decodeCursor } from "../cursor.js";
 
-const DEFAULT_PAGE_SIZE = 20;
+const DEFAULT_PAGE_SIZE = 10;
 const MAX_PAGE_SIZE = 50;
 
 export async function adminRooms(
@@ -29,11 +29,10 @@ export async function adminRooms(
   const pageSize = Math.min(requestedFirst, MAX_PAGE_SIZE);
   const afterId = after ? decodeCursor(after) : undefined;
 
-  const rows = await findRoomsPage({
-    take: pageSize + 1,
-    afterId,
-    callerId: caller.id,
-  });
+  const [rows, totalCount] = await Promise.all([
+    findRoomsPage({ take: pageSize + 1, afterId, callerId: caller.id }),
+    countRooms(),
+  ]);
   const hasNextPage = rows.length > pageSize;
   const page = hasNextPage ? rows.slice(0, pageSize) : rows;
 
@@ -47,5 +46,6 @@ export async function adminRooms(
       endCursor:
         page.length > 0 ? encodeCursor(page[page.length - 1].id) : null,
     },
+    totalCount,
   };
 }

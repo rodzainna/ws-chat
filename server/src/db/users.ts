@@ -100,3 +100,7 @@ export function findUsersPage(input: {
     ...(input.afterId ? { cursor: { id: input.afterId }, skip: 1 } : {}),
   });
 }
+
+export function countUsers(): Promise<number> {
+  return getPrisma().user.count();
+}

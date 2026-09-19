@@ -112,3 +112,7 @@ export function findRoomsPage(input: {
     },
   });
 }
+
+export function countRooms(): Promise<number> {
+  return getPrisma().room.count({ where: { deletedAt: null } });
+}
