@@ -48,6 +48,10 @@ export class ConnectionRegistry {
     return wentOffline;
   }
 
+  isOnline(userId: string): boolean {
+    return (this.socketsByUserId.get(userId)?.size ?? 0) > 0;
+  }
+
   disconnectUser(userId: string, reason: SessionExpiredReason): boolean {
     this.recentlyDisconnectedUserIds.set(userId, {
       reason,

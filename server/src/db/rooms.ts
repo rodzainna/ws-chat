@@ -1,5 +1,10 @@
 import { getPrisma } from "./prisma.js";
-import type { Room, RoomMember, User } from "../generated/prisma/client.js";
+import type {
+  Room,
+  RoomMember,
+  RoomRole,
+  User,
+} from "../generated/prisma/client.js";
 
 export function findRoomById(id: string): Promise<Room | null> {
   return getPrisma().room.findUnique({ where: { id } });
@@ -72,6 +77,16 @@ export async function findRoomMembersByUsernames(
     include: { user: true },
   });
   return members.map((m) => m.user);
+}
+
+export async function findRoomMembers(
+  roomId: string,
+): Promise<{ user: User; role: RoomRole }[]> {
+  const members = await getPrisma().roomMember.findMany({
+    where: { roomId },
+    include: { user: true },
+  });
+  return members.map((m) => ({ user: m.user, role: m.role }));
 }
 
 export async function findRoomIdsForUser(userId: string): Promise<string[]> {

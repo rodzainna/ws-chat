@@ -27,6 +27,17 @@ export const typeDefs = `#graphql
     isMember: Boolean!
   }
 
+  enum RoomRole {
+    OWNER
+    MEMBER
+  }
+
+  type RoomMember {
+    user: User!
+    role: RoomRole!
+    isOnline: Boolean!
+  }
+
   type Message {
     id: ID!
     roomId: ID!
@@ -158,6 +169,7 @@ export const typeDefs = `#graphql
     me: User
     accessTokenExpiresAt: DateTime
     rooms: [Room!]!
+    roomMembers(roomId: ID!): [RoomMember!]!
     messages(roomId: ID!, first: Int, after: String): MessageConnection!
     users(first: Int, after: String): UserConnection!
     adminRooms(first: Int, after: String): RoomConnection!

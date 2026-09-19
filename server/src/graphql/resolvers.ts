@@ -13,6 +13,7 @@ import { deactivateUser } from "./resolvers/deactivateUser.js";
 import { messages } from "./resolvers/messages.js";
 import { users } from "./resolvers/users.js";
 import { rooms } from "./resolvers/rooms.js";
+import { roomMembers } from "./resolvers/roomMembers.js";
 import { adminRooms } from "./resolvers/adminRooms.js";
 import { me } from "./resolvers/me.js";
 import { accessTokenExpiresAt } from "./resolvers/accessTokenExpiresAt.js";
@@ -24,6 +25,7 @@ export const resolvers = {
     me,
     accessTokenExpiresAt,
     rooms,
+    roomMembers,
     messages,
     users,
     adminRooms,
