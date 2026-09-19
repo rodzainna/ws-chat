@@ -92,7 +92,7 @@ function renderContentWithMentions(
     index % 2 === 1 ? (
       <span
         key={index}
-        className="font-medium text-blue-600 dark:text-blue-400"
+        className="rounded bg-amber-400 px-1 font-medium text-amber-950"
       >
         @{part}
       </span>

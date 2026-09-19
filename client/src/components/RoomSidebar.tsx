@@ -124,8 +124,8 @@ export function RoomSidebar() {
 
   return (
     <aside className="flex w-64 shrink-0 flex-col border-r">
-      <div className="border-b p-3">
-        {canCreate && (
+      {canCreate && (
+        <div className="border-b p-2">
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
               <Button className="w-full">Create room</Button>
@@ -170,8 +170,8 @@ export function RoomSidebar() {
               </form>
             </DialogContent>
           </Dialog>
-        )}
-      </div>
+        </div>
+      )}
 
       <div className="flex-1 overflow-y-auto p-2">
         {loading && (
