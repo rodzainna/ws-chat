@@ -1,3 +1,5 @@
+import type { WebSocket } from "ws";
+
 export type ClientMessage =
   | { type: "join"; roomId: string }
   | { type: "leave"; roomId: string }
@@ -16,6 +18,8 @@ export type ChatMessage = {
   mentionedUsernames: string[];
 };
 
+export type SessionExpiredReason = "deactivated";
+
 export type ServerMessage =
   | { type: "joined"; roomId: string }
   | { type: "message_created"; message: ChatMessage }
@@ -27,7 +31,17 @@ export type ServerMessage =
     }
   | { type: "message_deleted"; messageId: string }
   | { type: "room_deleted"; roomId: string }
+  | { type: "session_expired"; reason: SessionExpiredReason }
   | { type: "error"; code: string; message: string };
+
+export function sendServerMessage(
+  socket: WebSocket,
+  message: ServerMessage,
+): void {
+  if (socket.readyState === socket.OPEN) {
+    socket.send(JSON.stringify(message));
+  }
+}
 
 type ParseResult =
   | { ok: true; message: ClientMessage }
