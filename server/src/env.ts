@@ -1,3 +1,5 @@
+import { validateUsername } from "./auth/validation.js";
+
 export function isDevelopment(): boolean {
   return process.env.NODE_ENV === "development";
 }
@@ -15,4 +17,22 @@ export function getPositiveIntEnv(name: string, defaultValue: number): number {
     throw new Error(`${name} must be a positive whole number, got "${raw}"`);
   }
   return parsed;
+}
+
+let cachedSuperAdminUsername: string | null | undefined;
+export function getSuperAdminUsername(): string | null {
+  if (cachedSuperAdminUsername === undefined) {
+    const raw = process.env.SUPERADMIN_USERNAME;
+    if (raw === undefined) {
+      cachedSuperAdminUsername = null;
+    } else {
+      const trimmed = raw.trim();
+      const error = validateUsername(trimmed);
+      if (error) {
+        throw new Error(`SUPERADMIN_USERNAME is invalid: ${error.message}`);
+      }
+      cachedSuperAdminUsername = trimmed.toLowerCase();
+    }
+  }
+  return cachedSuperAdminUsername;
 }

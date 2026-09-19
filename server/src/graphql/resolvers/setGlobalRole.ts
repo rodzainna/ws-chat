@@ -23,19 +23,23 @@ export async function setGlobalRole(
     });
   }
 
-  const { blocked, user } = await updateGlobalRoleGuarded(userId, role);
+  const result = await updateGlobalRoleGuarded(userId, role);
 
-  if (blocked) {
+  if (result.blocked) {
     return {
       user: null,
       userErrors: [
         {
           field: ["role"],
-          message: "Cannot change the last active admin's role",
+          message:
+            result.reason === "superadmin"
+              ? "This account's role cannot be changed"
+              : "Cannot change the last active admin's role",
         },
       ],
     };
   }
+  const { user } = result;
   if (!user) {
     return {
       user: null,
