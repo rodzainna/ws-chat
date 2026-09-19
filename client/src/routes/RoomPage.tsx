@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { useParams } from "react-router";
-import { gql, useQuery } from "@apollo/client";
+import { gql, useMutation, useQuery } from "@apollo/client";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,6 +23,20 @@ type ChatMessage = {
   deleted: boolean;
   mentionedUsernames: string[];
 };
+
+const ADMIN_DELETE_MESSAGE_MUTATION = gql`
+  mutation AdminDeleteMessage($messageId: ID!) {
+    deleteMessage(messageId: $messageId) {
+      message {
+        id
+      }
+      userErrors {
+        field
+        message
+      }
+    }
+  }
+`;
 
 const ROOM_MESSAGES_QUERY = gql`
   query RoomMessages($roomId: ID!) {
@@ -82,6 +96,16 @@ export function RoomPage() {
   // works because the server answers a socket's frames in order. (A second
   // tab in the same room can throw this off; accepted.)
   const pendingSendsRef = useRef<string[]>([]);
+
+  const [adminDeleteMessage] = useMutation<
+    {
+      deleteMessage: {
+        message: { id: string } | null;
+        userErrors: { field: string[]; message: string }[];
+      };
+    },
+    { messageId: string }
+  >(ADMIN_DELETE_MESSAGE_MUTATION);
 
   const { data, loading } = useQuery<{
     messages: {
@@ -199,6 +223,20 @@ export function RoomPage() {
     setEditingId(null);
   }
 
+  async function handleAdminDelete(messageId: string) {
+    try {
+      const result = await adminDeleteMessage({ variables: { messageId } });
+      const payload = result.data?.deleteMessage;
+      if (!payload?.message) {
+        toast.error(
+          payload?.userErrors[0]?.message ?? "Could not delete message",
+        );
+      }
+    } catch {
+      toast.error("Could not delete message — you may no longer be an admin");
+    }
+  }
+
   if (!roomId) return null;
 
   return (
@@ -239,24 +277,32 @@ export function RoomPage() {
                     {message.editedAt && !message.deleted && (
                       <span>(edited)</span>
                     )}
-                    {isOwn && !message.deleted && !isEditing && (
+                    {!message.deleted && !isEditing && (
                       <span className="hidden gap-1 group-hover:flex">
-                        <Button
-                          type="button"
-                          variant="linkMuted"
-                          size="inline"
-                          onClick={() => startEdit(message)}
-                        >
-                          Edit
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="linkMuted"
-                          size="inline"
-                          onClick={() => deleteMessage(message.id)}
-                        >
-                          Delete
-                        </Button>
+                        {isOwn && (
+                          <Button
+                            type="button"
+                            variant="linkMuted"
+                            size="inline"
+                            onClick={() => startEdit(message)}
+                          >
+                            Edit
+                          </Button>
+                        )}
+                        {(isOwn || user?.globalRole === "ADMIN") && (
+                          <Button
+                            type="button"
+                            variant="linkMuted"
+                            size="inline"
+                            onClick={() =>
+                              isOwn
+                                ? deleteMessage(message.id)
+                                : void handleAdminDelete(message.id)
+                            }
+                          >
+                            Delete
+                          </Button>
+                        )}
                       </span>
                     )}
                   </div>
