@@ -1,5 +1,7 @@
 import "dotenv/config";
 import http from "node:http";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
@@ -21,6 +23,9 @@ import { ACCESS_TOKEN_COOKIE } from "./auth/cookies.js";
 import { typeDefs } from "./graphql/schema.js";
 import { resolvers } from "./graphql/resolvers.js";
 import type { GraphQLContext } from "./graphql/context.js";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const CLIENT_DIST_DIR = path.join(__dirname, "../../client/dist");
 
 const PORT = Number(process.env.PORT ?? 8080);
 const MAX_WS_PAYLOAD_BYTES = 16 * 1024;
@@ -150,6 +155,19 @@ app.use(
     },
   }),
 );
+
+app.get("/health", (_req, res) => {
+  res.status(200).json({ status: "ok" });
+});
+
+app.use(express.static(CLIENT_DIST_DIR));
+app.use((req, res, next) => {
+  if (req.method !== "GET") {
+    next();
+    return;
+  }
+  res.sendFile(path.join(CLIENT_DIST_DIR, "index.html"));
+});
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
