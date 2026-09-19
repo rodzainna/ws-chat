@@ -76,6 +76,10 @@ export class RoomRegistry {
     return this.socketsToRooms.get(socket)?.has(roomId) ?? false;
   }
 
+  getJoinedSockets(roomId: string): ReadonlySet<WebSocket> {
+    return new Set(this.roomsToSockets.get(roomId));
+  }
+
   broadcast(roomId: string, data: string): void {
     const sockets = this.roomsToSockets.get(roomId);
     if (!sockets) return;

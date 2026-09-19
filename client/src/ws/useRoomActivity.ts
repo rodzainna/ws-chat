@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useChatConnection } from "./useChatConnection";
 import type { ConnectionEvent } from "./ChatConnectionProvider";
 
@@ -9,11 +9,17 @@ export function useRoomActivity(
 ): Record<string, RoomActivity> {
   const { subscribe } = useChatConnection();
   const [activity, setActivity] = useState<Record<string, RoomActivity>>({});
+  const seenMessageIdsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     return subscribe((event: ConnectionEvent) => {
       if (event.type !== "room_activity") return;
       if (event.roomId === activeRoomId) return;
+      if (seenMessageIdsRef.current.has(event.messageId)) return;
+      if (seenMessageIdsRef.current.size > 50) {
+        seenMessageIdsRef.current.clear();
+      }
+      seenMessageIdsRef.current.add(event.messageId);
       setActivity((prev) => {
         const current = prev[event.roomId] ?? {
           unreadCount: 0,

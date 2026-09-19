@@ -23,6 +23,7 @@ export type ServerMessage =
       editedAt: string;
     }
   | { type: "message_deleted"; messageId: string }
+  | { type: "room_deleted"; roomId: string }
   | {
       type: "session_expired";
       reason: "deactivated" | "token_expired" | "logged_out";
@@ -85,15 +86,20 @@ export function ChatConnectionProvider({ children }: { children: ReactNode }) {
     function connect(
       onReady: () => void,
       onCloseBeforeReady?: () => void,
-    ): { socket: WebSocket; markIntentional: () => void } {
+    ): {
+      socket: WebSocket;
+      markIntentional: () => void;
+      getJoinedRoomId: () => string | null;
+    } {
       const socket = new WebSocket(wsUrl());
       let closingIntentionally = false;
       let ready = false;
+      let joinedRoomId: string | null = null;
 
       socket.addEventListener("open", () => {
-        const roomId = activeRoomRef.current;
-        if (roomId) {
-          socket.send(JSON.stringify({ type: "join", roomId }));
+        joinedRoomId = activeRoomRef.current;
+        if (joinedRoomId) {
+          socket.send(JSON.stringify({ type: "join", roomId: joinedRoomId }));
         } else {
           ready = true;
           onReady();
@@ -122,7 +128,11 @@ export function ChatConnectionProvider({ children }: { children: ReactNode }) {
         dispatch({ type: "connection_lost" });
       });
 
-      return { socket, markIntentional: () => (closingIntentionally = true) };
+      return {
+        socket,
+        markIntentional: () => (closingIntentionally = true),
+        getJoinedRoomId: () => joinedRoomId,
+      };
     }
 
     let active = connect(() => {});
@@ -136,11 +146,17 @@ export function ChatConnectionProvider({ children }: { children: ReactNode }) {
       if (pending) return;
       pending = connect(
         () => {
+          const joinedRoomId = pending!.getJoinedRoomId();
+          const currentRoomId = activeRoomRef.current;
           active.markIntentional();
           active.socket.close();
           socketRef.current = pending!.socket;
           active = pending!;
           pending = null;
+          if (currentRoomId !== joinedRoomId) {
+            if (joinedRoomId) send({ type: "leave", roomId: joinedRoomId });
+            if (currentRoomId) send({ type: "join", roomId: currentRoomId });
+          }
         },
         () => {
           pending = null;
@@ -158,7 +174,7 @@ export function ChatConnectionProvider({ children }: { children: ReactNode }) {
       }
       socketRef.current = null;
     };
-  }, [dispatch]);
+  }, [dispatch, send]);
 
   const value = useMemo(
     () => ({ subscribe, send, setActiveRoom }),

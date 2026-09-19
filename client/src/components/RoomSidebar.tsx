@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { NavLink, useLocation, useNavigate } from "react-router";
+import { NavLink, useMatches, useNavigate } from "react-router";
 import { gql, useMutation, useQuery } from "@apollo/client";
 import { ChevronRightIcon } from "lucide-react";
 import { ROOMS_QUERY } from "@/graphql/queries";
@@ -63,8 +63,12 @@ const JOIN_ROOM_MUTATION = gql`
 export function RoomSidebar() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
-  const activeRoomId = /^\/rooms\/([^/]+)/.exec(location.pathname)?.[1] ?? null;
+  // the sidebar sits outside the /rooms/:roomId match, so useParams() can't
+  // see roomId
+  const matches = useMatches();
+  const activeRoomId =
+    (matches.find((match) => match.params.roomId)?.params.roomId as string) ??
+    null;
   const activity = useRoomActivity(activeRoomId);
   const { data, loading, error, refetch } = useQuery<{ rooms: Room[] }>(
     ROOMS_QUERY,

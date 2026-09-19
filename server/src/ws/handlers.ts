@@ -166,7 +166,7 @@ async function handleMessage(
         } satisfies ServerMessage),
       );
       broadcastRoomActivity(
-        registry,
+        registry.getJoinedSockets(message.roomId),
         connectionRegistry,
         message.roomId,
         created.id,
@@ -300,7 +300,9 @@ async function broadcastPresenceChange(
 }
 
 async function broadcastRoomActivity(
-  registry: RoomRegistry,
+  // a snapshot, not a live lookup: a join during the DB await below could
+  // otherwise leave a member with neither the message nor the unread signal
+  joinedSockets: ReadonlySet<WebSocket>,
   connectionRegistry: ConnectionRegistry,
   roomId: string,
   messageId: string,
@@ -312,7 +314,7 @@ async function broadcastRoomActivity(
     if (memberUserId === senderId) continue;
     const mentionsYou = mentionedUserIds.has(memberUserId);
     for (const socket of connectionRegistry.getSockets(memberUserId)) {
-      if (registry.isMember(socket, roomId)) continue;
+      if (joinedSockets.has(socket)) continue;
       send(socket, { type: "room_activity", roomId, messageId, mentionsYou });
     }
   }
