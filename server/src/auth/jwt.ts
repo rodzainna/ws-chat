@@ -22,6 +22,10 @@ function getSecret(): Uint8Array {
   return cachedSecret;
 }
 
+// setTimeout's max delay; anything larger fires after 1ms. The WS expiry
+// timer schedules off this value.
+const MAX_EXPIRY_MS = 2_147_483_647;
+
 let cachedExpiryMs: number | undefined;
 export function getAccessTokenExpiryMs(): number {
   if (cachedExpiryMs === undefined) {
@@ -36,6 +40,11 @@ export function getAccessTokenExpiryMs(): number {
     if (typeof parsed !== "number" || parsed <= 0) {
       throw new Error(
         `JWT_ACCESS_TOKEN_EXPIRY is not a valid duration: "${raw}"`,
+      );
+    }
+    if (parsed > MAX_EXPIRY_MS) {
+      throw new Error(
+        `JWT_ACCESS_TOKEN_EXPIRY is too long: "${raw}" exceeds the maximum supported duration (~24.8 days)`,
       );
     }
     cachedExpiryMs = parsed;
