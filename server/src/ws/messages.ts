@@ -18,7 +18,8 @@ export type ChatMessage = {
   mentionedUsernames: string[];
 };
 
-export type SessionExpiredReason = "deactivated" | "token_expired";
+export type SessionExpiredReason =
+  "deactivated" | "token_expired" | "logged_out";
 
 export type ServerMessage =
   | { type: "joined"; roomId: string }
