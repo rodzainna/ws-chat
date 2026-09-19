@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { NavLink, useNavigate } from "react-router";
+import { NavLink, useLocation, useNavigate } from "react-router";
 import { gql, useMutation, useQuery } from "@apollo/client";
 import { ChevronRightIcon } from "lucide-react";
 import { ROOMS_QUERY } from "@/graphql/queries";
@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/auth/useAuth";
+import { useRoomActivity } from "@/ws/useRoomActivity";
 
 type Room = {
   id: string;
@@ -62,6 +63,9 @@ const JOIN_ROOM_MUTATION = gql`
 export function RoomSidebar() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const activeRoomId = /^\/rooms\/([^/]+)/.exec(location.pathname)?.[1] ?? null;
+  const activity = useRoomActivity(activeRoomId);
   const { data, loading, error, refetch } = useQuery<{ rooms: Room[] }>(
     ROOMS_QUERY,
   );
@@ -184,25 +188,36 @@ export function RoomSidebar() {
           <p className="p-2 text-sm text-destructive">{joinError}</p>
         )}
 
-        {memberRooms.map((room) => (
-          <NavLink
-            key={room.id}
-            to={`/rooms/${room.id}`}
-            className={({ isActive }) =>
-              cn(
-                "flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted",
-                isActive && "bg-muted font-medium",
-              )
-            }
-          >
-            <span className="truncate"># {room.name}</span>
-            {room.isPrivate && (
-              <Badge variant="secondary" className="ml-auto shrink-0">
-                Private
-              </Badge>
-            )}
-          </NavLink>
-        ))}
+        {memberRooms.map((room) => {
+          const roomActivity = activity[room.id];
+          return (
+            <NavLink
+              key={room.id}
+              to={`/rooms/${room.id}`}
+              className={({ isActive }) =>
+                cn(
+                  "flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted",
+                  isActive && "bg-muted font-medium",
+                )
+              }
+            >
+              <span className="truncate"># {room.name}</span>
+              <span className="ml-auto flex shrink-0 items-center gap-1">
+                {room.isPrivate && <Badge variant="secondary">Private</Badge>}
+                {roomActivity && (
+                  <Badge
+                    className={cn(
+                      roomActivity.hasUnreadMention &&
+                        "bg-amber-400 text-amber-950",
+                    )}
+                  >
+                    {roomActivity.unreadCount}
+                  </Badge>
+                )}
+              </span>
+            </NavLink>
+          );
+        })}
 
         {memberRooms.length === 0 && !canJoin && (
           <p className="p-2 text-sm text-muted-foreground">
