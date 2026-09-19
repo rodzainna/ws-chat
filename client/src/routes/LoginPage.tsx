@@ -6,9 +6,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/auth/useAuth";
+import { scheduleProactiveRefresh } from "@/lib/apollo";
 
 type UserError = { field: string[]; message: string };
-type AuthPayload = { user: { id: string } | null; userErrors: UserError[] };
+type AuthPayload = {
+  user: { id: string } | null;
+  accessTokenExpiresAt: string | null;
+  userErrors: UserError[];
+};
 
 const LOGIN_MUTATION = gql`
   mutation Login($input: LoginInput!) {
@@ -16,6 +21,7 @@ const LOGIN_MUTATION = gql`
       user {
         id
       }
+      accessTokenExpiresAt
       userErrors {
         field
         message
@@ -30,6 +36,7 @@ const REGISTER_MUTATION = gql`
       user {
         id
       }
+      accessTokenExpiresAt
       userErrors {
         field
         message
@@ -63,6 +70,11 @@ export function LoginPage() {
     if (!payload?.user) {
       setErrors(payload?.userErrors ?? []);
       return;
+    }
+    if (payload.accessTokenExpiresAt) {
+      scheduleProactiveRefresh(
+        new Date(payload.accessTokenExpiresAt).getTime(),
+      );
     }
     await refetchUser();
   }
