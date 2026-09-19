@@ -95,7 +95,7 @@ export function findUsersPage(input: {
   afterId?: string;
 }): Promise<User[]> {
   return getPrisma().user.findMany({
-    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+    orderBy: [{ username: "asc" }, { id: "asc" }],
     take: input.take,
     ...(input.afterId ? { cursor: { id: input.afterId }, skip: 1 } : {}),
   });

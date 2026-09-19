@@ -104,7 +104,7 @@ export function findRoomsPage(input: {
 }) {
   return getPrisma().room.findMany({
     where: { deletedAt: null },
-    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+    orderBy: [{ name: "asc" }, { id: "asc" }],
     take: input.take,
     ...(input.afterId ? { cursor: { id: input.afterId }, skip: 1 } : {}),
     include: {
