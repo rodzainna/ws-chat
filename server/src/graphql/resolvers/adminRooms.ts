@@ -1,28 +1,21 @@
 import { GraphQLError } from "graphql";
 import { requireActiveUser } from "../currentUser.js";
-import { findUsersPage, countUsers } from "../../db/users.js";
+import { findRoomsPage, countRooms } from "../../db/rooms.js";
 import type { GraphQLContext } from "../context.js";
-import type { User } from "../../generated/prisma/client.js";
 import { encodeCursor, decodeCursor } from "../cursor.js";
 
 const DEFAULT_PAGE_SIZE = 10;
 const MAX_PAGE_SIZE = 50;
 
-type UserConnection = {
-  edges: { cursor: string; node: User }[];
-  pageInfo: { hasNextPage: boolean; endCursor: string | null };
-  totalCount: number;
-};
-
-export async function users(
+export async function adminRooms(
   _parent: unknown,
   { first, after }: { first?: number | null; after?: string | null },
   context: GraphQLContext,
-): Promise<UserConnection> {
+) {
   const caller = await requireActiveUser(context);
 
   if (caller.globalRole !== "ADMIN") {
-    throw new GraphQLError("Only an admin can list users", {
+    throw new GraphQLError("Only an admin can list all rooms", {
       extensions: { code: "FORBIDDEN" },
     });
   }
@@ -37,14 +30,17 @@ export async function users(
   const afterId = after ? decodeCursor(after) : undefined;
 
   const [rows, totalCount] = await Promise.all([
-    findUsersPage({ take: pageSize + 1, afterId }),
-    countUsers(),
+    findRoomsPage({ take: pageSize + 1, afterId, callerId: caller.id }),
+    countRooms(),
   ]);
   const hasNextPage = rows.length > pageSize;
   const page = hasNextPage ? rows.slice(0, pageSize) : rows;
 
   return {
-    edges: page.map((user) => ({ cursor: encodeCursor(user.id), node: user })),
+    edges: page.map((room) => ({
+      cursor: encodeCursor(room.id),
+      node: { ...room, isMember: room.members.length > 0 },
+    })),
     pageInfo: {
       hasNextPage,
       endCursor:

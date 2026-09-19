@@ -1,10 +1,13 @@
 import { createBrowserRouter } from "react-router";
 import { RootLayout } from "@/routes/RootLayout";
 import { ProtectedRoute } from "@/auth/ProtectedRoute";
+import { AdminRoute } from "@/auth/AdminRoute";
 import { LoginPage } from "@/routes/LoginPage";
 import { ChatLayout } from "@/routes/ChatLayout";
 import { NoRoomSelected } from "@/routes/NoRoomSelected";
 import { RoomRoute } from "@/routes/RoomRoute";
+import { AdminLayout } from "@/routes/AdminLayout";
+import { AdminPage } from "@/routes/AdminPage";
 
 export const router = createBrowserRouter([
   {
@@ -19,6 +22,15 @@ export const router = createBrowserRouter([
             children: [
               { path: "/", element: <NoRoomSelected /> },
               { path: "/rooms/:roomId", element: <RoomRoute /> },
+            ],
+          },
+          {
+            element: <AdminRoute />,
+            children: [
+              {
+                element: <AdminLayout />,
+                children: [{ path: "/admin", element: <AdminPage /> }],
+              },
             ],
           },
         ],

@@ -1,11 +1,23 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { useParams } from "react-router";
-import { gql, useQuery } from "@apollo/client";
+import { gql, useMutation, useQuery } from "@apollo/client";
 import { toast } from "sonner";
+import { Loader2Icon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/auth/useAuth";
 import { useChatSocket, type WsChatMessage } from "@/ws/useChatSocket";
@@ -23,6 +35,20 @@ type ChatMessage = {
   deleted: boolean;
   mentionedUsernames: string[];
 };
+
+const ADMIN_DELETE_MESSAGE_MUTATION = gql`
+  mutation AdminDeleteMessage($messageId: ID!) {
+    deleteMessage(messageId: $messageId) {
+      message {
+        id
+      }
+      userErrors {
+        field
+        message
+      }
+    }
+  }
+`;
 
 const ROOM_MESSAGES_QUERY = gql`
   query RoomMessages($roomId: ID!) {
@@ -43,6 +69,28 @@ const ROOM_MESSAGES_QUERY = gql`
   }
 `;
 
+function formatMessageTimestamp(iso: string): string {
+  const date = new Date(iso);
+  const now = new Date();
+  const isToday =
+    date.getFullYear() === now.getFullYear() &&
+    date.getMonth() === now.getMonth() &&
+    date.getDate() === now.getDate();
+
+  const time = date.toLocaleTimeString([], {
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
+  if (isToday) return time;
+
+  const datePart = date.toLocaleDateString([], {
+    month: "numeric",
+    day: "numeric",
+  });
+  return `${datePart} ${time}`;
+}
+
 function renderContentWithMentions(
   content: string,
   mentionedUsernames: string[],
@@ -56,7 +104,7 @@ function renderContentWithMentions(
     index % 2 === 1 ? (
       <span
         key={index}
-        className="font-medium text-blue-600 dark:text-blue-400"
+        className="rounded bg-amber-400 px-1 font-medium text-amber-950"
       >
         @{part}
       </span>
@@ -77,11 +125,23 @@ export function RoomPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState("");
   const [socketError, setSocketError] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [deletePending, setDeletePending] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   // sent-but-unconfirmed drafts, so a rate-limited send can be restored. FIFO
   // works because the server answers a socket's frames in order. (A second
   // tab in the same room can throw this off; accepted.)
   const pendingSendsRef = useRef<string[]>([]);
+
+  const [adminDeleteMessage] = useMutation<
+    {
+      deleteMessage: {
+        message: { id: string } | null;
+        userErrors: { field: string[]; message: string }[];
+      };
+    },
+    { messageId: string }
+  >(ADMIN_DELETE_MESSAGE_MUTATION);
 
   const { data, loading } = useQuery<{
     messages: {
@@ -154,6 +214,10 @@ export function RoomPage() {
               : m,
           ),
         );
+        setConfirmDeleteId((current) =>
+          current === messageId ? null : current,
+        );
+        setDeletePending(false);
       },
       onError: (code, message) => {
         if (code === "RATE_LIMITED") {
@@ -165,6 +229,7 @@ export function RoomPage() {
           return;
         }
         setSocketError(message);
+        setDeletePending(false);
       },
     },
   );
@@ -197,6 +262,35 @@ export function RoomPage() {
     if (!editingId || !editDraft.trim()) return;
     editMessage(editingId, editDraft);
     setEditingId(null);
+  }
+
+  async function handleAdminDelete(messageId: string) {
+    try {
+      const result = await adminDeleteMessage({ variables: { messageId } });
+      const payload = result.data?.deleteMessage;
+      if (!payload?.message) {
+        toast.error(
+          payload?.userErrors[0]?.message ?? "Could not delete message",
+        );
+      }
+    } catch {
+      toast.error("Could not delete message — you may no longer be an admin");
+    }
+  }
+
+  function confirmDelete(message: ChatMessage) {
+    setDeletePending(true);
+    if (message.userId === user?.id) {
+      if (!deleteMessage(message.id)) {
+        setDeletePending(false);
+        toast.error("Could not delete — connection lost. Reload the page.");
+      }
+    } else {
+      void handleAdminDelete(message.id).finally(() => {
+        setDeletePending(false);
+        setConfirmDeleteId(null);
+      });
+    }
   }
 
   if (!roomId) return null;
@@ -232,29 +326,71 @@ export function RoomPage() {
                   {!isOwn && (
                     <span className="font-medium">{message.username}</span>
                   )}
-                  <span>
-                    {new Date(message.createdAt).toLocaleTimeString()}
-                  </span>
+                  <span>{formatMessageTimestamp(message.createdAt)}</span>
                   <div className="flex items-center gap-2 px-1 text-xs text-muted-foreground">
                     {message.editedAt && !message.deleted && (
                       <span>(edited)</span>
                     )}
-                    {isOwn && !message.deleted && !isEditing && (
+                    {!message.deleted && !isEditing && (
                       <span className="hidden gap-1 group-hover:flex">
-                        <button
-                          type="button"
-                          className="hover:underline hover:cursor-pointer"
-                          onClick={() => startEdit(message)}
-                        >
-                          Edit
-                        </button>
-                        <button
-                          type="button"
-                          className="hover:underline hover:cursor-pointer"
-                          onClick={() => deleteMessage(message.id)}
-                        >
-                          Delete
-                        </button>
+                        {isOwn && (
+                          <Button
+                            type="button"
+                            variant="linkMuted"
+                            size="inline"
+                            onClick={() => startEdit(message)}
+                          >
+                            Edit
+                          </Button>
+                        )}
+                        {(isOwn || user?.globalRole === "ADMIN") && (
+                          <AlertDialog
+                            open={confirmDeleteId === message.id}
+                            onOpenChange={(open) =>
+                              setConfirmDeleteId(open ? message.id : null)
+                            }
+                          >
+                            <AlertDialogTrigger asChild>
+                              <Button
+                                type="button"
+                                variant="linkMuted"
+                                size="inline"
+                              >
+                                Delete
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>
+                                  Delete this message?
+                                </AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  This can't be undone — it'll show as "[message
+                                  deleted]" to everyone in the room.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction
+                                  disabled={deletePending}
+                                  onClick={(event) => {
+                                    event.preventDefault();
+                                    confirmDelete(message);
+                                  }}
+                                >
+                                  {deletePending ? (
+                                    <>
+                                      <Loader2Icon className="animate-spin" />
+                                      Deleting…
+                                    </>
+                                  ) : (
+                                    "Delete"
+                                  )}
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        )}
                       </span>
                     )}
                   </div>
