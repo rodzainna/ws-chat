@@ -52,6 +52,10 @@ export class ConnectionRegistry {
     return (this.socketsByUserId.get(userId)?.size ?? 0) > 0;
   }
 
+  getSockets(userId: string): WebSocket[] {
+    return [...(this.socketsByUserId.get(userId) ?? [])];
+  }
+
   disconnectUser(userId: string, reason: SessionExpiredReason): boolean {
     this.recentlyDisconnectedUserIds.set(userId, {
       reason,

@@ -12,6 +12,7 @@ import {
 } from "./messages.js";
 import {
   canAccessRoom,
+  findMemberUserIdsForRoom,
   findRoomIdsForUser,
   findRoomMembersByUsernames,
 } from "../db/rooms.js";
@@ -84,6 +85,7 @@ async function loadOwnedLiveMessage(
 async function handleMessage(
   socket: AuthenticatedWebSocket,
   registry: RoomRegistry,
+  connectionRegistry: ConnectionRegistry,
   raw: string,
 ): Promise<void> {
   const result = parseClientMessage(raw);
@@ -163,6 +165,16 @@ async function handleMessage(
           message: toChatMessage(created),
         } satisfies ServerMessage),
       );
+      broadcastRoomActivity(
+        registry,
+        connectionRegistry,
+        message.roomId,
+        created.id,
+        userId,
+        new Set(mentionedUsers.map((u) => u.id)),
+      ).catch((err: unknown) => {
+        console.error("Error broadcasting room_activity:", err);
+      });
       return;
     }
 
@@ -287,6 +299,25 @@ async function broadcastPresenceChange(
   }
 }
 
+async function broadcastRoomActivity(
+  registry: RoomRegistry,
+  connectionRegistry: ConnectionRegistry,
+  roomId: string,
+  messageId: string,
+  senderId: string,
+  mentionedUserIds: ReadonlySet<string>,
+): Promise<void> {
+  const memberUserIds = await findMemberUserIdsForRoom(roomId);
+  for (const memberUserId of memberUserIds) {
+    if (memberUserId === senderId) continue;
+    const mentionsYou = mentionedUserIds.has(memberUserId);
+    for (const socket of connectionRegistry.getSockets(memberUserId)) {
+      if (registry.isMember(socket, roomId)) continue;
+      send(socket, { type: "room_activity", roomId, messageId, mentionsYou });
+    }
+  }
+}
+
 export function registerWsHandlers(
   wss: WebSocketServer,
   registry: RoomRegistry,
@@ -332,7 +363,12 @@ export function registerWsHandlers(
       const raw = data.toString();
       processingQueue = processingQueue
         .then(() =>
-          handleMessage(socket as AuthenticatedWebSocket, registry, raw),
+          handleMessage(
+            socket as AuthenticatedWebSocket,
+            registry,
+            connectionRegistry,
+            raw,
+          ),
         )
         .catch((err: unknown) => {
           console.error("Error handling WS message:", err);
