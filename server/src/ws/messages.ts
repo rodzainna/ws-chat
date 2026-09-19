@@ -33,6 +33,7 @@ export type ServerMessage =
   | { type: "message_deleted"; messageId: string }
   | { type: "room_deleted"; roomId: string }
   | { type: "session_expired"; reason: SessionExpiredReason }
+  | { type: "presence_changed"; userId: string; online: boolean }
   | { type: "error"; code: string; message: string };
 
 export function sendServerMessage(

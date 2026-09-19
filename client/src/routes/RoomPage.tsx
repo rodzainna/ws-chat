@@ -18,6 +18,13 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/auth/useAuth";
 import { useChatSocket, type WsChatMessage } from "@/ws/useChatSocket";
@@ -36,6 +43,12 @@ type ChatMessage = {
   mentionedUsernames: string[];
 };
 
+type RoomMemberRow = {
+  user: { id: string; username: string };
+  role: "OWNER" | "MEMBER";
+  isOnline: boolean;
+};
+
 const ADMIN_DELETE_MESSAGE_MUTATION = gql`
   mutation AdminDeleteMessage($messageId: ID!) {
     deleteMessage(messageId: $messageId) {
@@ -46,6 +59,19 @@ const ADMIN_DELETE_MESSAGE_MUTATION = gql`
         field
         message
       }
+    }
+  }
+`;
+
+const ROOM_MEMBERS_QUERY = gql`
+  query RoomMembers($roomId: ID!) {
+    roomMembers(roomId: $roomId) {
+      user {
+        id
+        username
+      }
+      role
+      isOnline
     }
   }
 `;
@@ -119,6 +145,16 @@ export function RoomPage() {
   const { user } = useAuth();
   const { data: roomsData } = useQuery<{ rooms: Room[] }>(ROOMS_QUERY);
   const room = roomsData?.rooms.find((r) => r.id === roomId);
+  const { data: membersData } = useQuery<{ roomMembers: RoomMemberRow[] }>(
+    ROOM_MEMBERS_QUERY,
+    { variables: { roomId }, skip: !roomId },
+  );
+  const [members, setMembers] = useState<RoomMemberRow[]>([]);
+  useEffect(() => {
+    if (!membersData) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setMembers(membersData.roomMembers);
+  }, [membersData]);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const [draft, setDraft] = useState("");
@@ -227,6 +263,13 @@ export function RoomPage() {
         );
         setDeletePending(false);
       },
+      onPresenceChanged: (userId, online) => {
+        setMembers((prev) =>
+          prev.map((m) =>
+            m.user.id === userId ? { ...m, isOnline: online } : m,
+          ),
+        );
+      },
       onError: (code, message) => {
         if (code === "RATE_LIMITED") {
           toast.warning(message);
@@ -249,6 +292,10 @@ export function RoomPage() {
   const orderedMessages = useMemo(
     () => [...messages].sort((a, b) => a.createdAt.localeCompare(b.createdAt)),
     [messages],
+  );
+  const onlineByUserId = useMemo(
+    () => new Map(members.map((m) => [m.user.id, m.isOnline])),
+    [members],
   );
 
   function handleSend(event: FormEvent) {
@@ -308,6 +355,38 @@ export function RoomPage() {
       <div className="flex items-center gap-2 border-b px-4 py-3">
         <span className="font-medium"># {room?.name ?? "…"}</span>
         {room?.isPrivate && <Badge variant="secondary">Private</Badge>}
+        <Dialog>
+          <DialogTrigger asChild>
+            <Button variant="ghost" size="sm" className="ml-auto">
+              {members.length} member{members.length === 1 ? "" : "s"}
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle># {room?.name ?? "…"} members</DialogTitle>
+            </DialogHeader>
+            <ul className="space-y-2">
+              {members.map((member) => (
+                <li key={member.user.id} className="flex items-center gap-2">
+                  <span
+                    className={cn(
+                      "h-2 w-2 rounded-full",
+                      member.isOnline
+                        ? "bg-green-500"
+                        : "bg-muted-foreground/40",
+                    )}
+                  />
+                  <span>{member.user.username}</span>
+                  {member.role === "OWNER" && (
+                    <Badge variant="secondary" className="ml-auto">
+                      Owner
+                    </Badge>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </DialogContent>
+        </Dialog>
       </div>
       <ScrollArea className="flex-1 px-4">
         <div className="mx-auto max-w-full space-y-3 py-4">
@@ -332,7 +411,17 @@ export function RoomPage() {
               >
                 <div className="mb-1 flex items-center gap-2 px-1 text-xs text-muted-foreground">
                   {!isOwn && (
-                    <span className="font-medium">{message.username}</span>
+                    <span className="inline-flex items-center gap-1">
+                      <span
+                        className={cn(
+                          "h-1.5 w-1.5 rounded-full",
+                          onlineByUserId.get(message.userId)
+                            ? "bg-green-500"
+                            : "bg-muted-foreground/40",
+                        )}
+                      />
+                      <span className="font-medium">{message.username}</span>
+                    </span>
                   )}
                   <span>{formatMessageTimestamp(message.createdAt)}</span>
                   <div className="flex items-center gap-2 px-1 text-xs text-muted-foreground">

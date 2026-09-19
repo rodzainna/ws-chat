@@ -20,28 +20,36 @@ export class ConnectionRegistry {
     }, SWEEP_INTERVAL_MS).unref();
   }
 
-  register(userId: string, socket: WebSocket): void {
+  register(userId: string, socket: WebSocket): boolean {
     const recent = this.recentlyDisconnectedUserIds.get(userId);
     if (recent && recent.expiresAt > Date.now()) {
       this.disconnectSocket(socket, recent.reason);
-      return;
+      return false;
     }
 
     let sockets = this.socketsByUserId.get(userId);
+    const wasOffline = !sockets || sockets.size === 0;
     if (!sockets) {
       sockets = new Set();
       this.socketsByUserId.set(userId, sockets);
     }
     sockets.add(socket);
+    return wasOffline;
   }
 
-  unregister(userId: string, socket: WebSocket): void {
+  unregister(userId: string, socket: WebSocket): boolean {
     const sockets = this.socketsByUserId.get(userId);
-    if (!sockets) return;
+    if (!sockets) return false;
     sockets.delete(socket);
-    if (sockets.size === 0) {
+    const wentOffline = sockets.size === 0;
+    if (wentOffline) {
       this.socketsByUserId.delete(userId);
     }
+    return wentOffline;
+  }
+
+  isOnline(userId: string): boolean {
+    return (this.socketsByUserId.get(userId)?.size ?? 0) > 0;
   }
 
   disconnectUser(userId: string, reason: SessionExpiredReason): boolean {
