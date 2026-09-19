@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { gql, useApolloClient } from "@apollo/client";
-import { attemptRefresh } from "@/lib/apollo";
+import {
+  attemptRefresh,
+  cancelProactiveRefresh,
+  scheduleProactiveRefresh,
+} from "@/lib/apollo";
 import { AuthContext } from "./useAuth";
 
 export type GlobalRole = "ADMIN" | "USER" | "RESTRICTED";
@@ -22,6 +26,7 @@ const ME_QUERY = gql`
       globalRole
       isActive
     }
+    accessTokenExpiresAt
   }
 `;
 
@@ -40,12 +45,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const refetchUser = useCallback(async () => {
     // the cache isn't keyed by user, so a new login mustn't see the old one's
     await client.clearStore();
-    const { data } = await client.query<{ me: CurrentUser | null }>({
+    const { data } = await client.query<{
+      me: CurrentUser | null;
+      accessTokenExpiresAt: string | null;
+    }>({
       query: ME_QUERY,
       fetchPolicy: "network-only",
     });
     if (data.me) {
       setUser(data.me);
+      if (data.accessTokenExpiresAt) {
+        scheduleProactiveRefresh(new Date(data.accessTokenExpiresAt).getTime());
+      }
       return;
     }
 
@@ -72,6 +83,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const clearUser = useCallback(() => {
     setUser(null);
+    cancelProactiveRefresh();
     void client.clearStore();
   }, [client]);
 

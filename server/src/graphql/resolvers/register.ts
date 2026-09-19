@@ -16,7 +16,11 @@ import type { GraphQLContext } from "../context.js";
 import { toUserError, type GraphQLUserError } from "../userErrors.js";
 
 type RegisterInput = { username: string; email: string; password: string };
-type RegisterPayload = { user: User | null; userErrors: GraphQLUserError[] };
+type RegisterPayload = {
+  user: User | null;
+  accessTokenExpiresAt: Date | null;
+  userErrors: GraphQLUserError[];
+};
 
 const DUPLICATE_MESSAGES: Record<string, string> = {
   username: "Username is already taken",
@@ -35,7 +39,11 @@ export async function register(
   ].filter((error): error is FieldError => error !== null);
 
   if (validationErrors.length > 0) {
-    return { user: null, userErrors: validationErrors.map(toUserError) };
+    return {
+      user: null,
+      accessTokenExpiresAt: null,
+      userErrors: validationErrors.map(toUserError),
+    };
   }
 
   const passwordHash = await hashPassword(input.password);
@@ -53,6 +61,7 @@ export async function register(
       const message = field ? DUPLICATE_MESSAGES[field] : undefined;
       return {
         user: null,
+        accessTokenExpiresAt: null,
         userErrors: [
           {
             field: field ? [field] : [],
@@ -64,7 +73,7 @@ export async function register(
     throw err;
   }
 
-  await establishSession(user.id, context.res);
+  const { accessTokenExpiresAt } = await establishSession(user.id, context.res);
 
-  return { user, userErrors: [] };
+  return { user, accessTokenExpiresAt, userErrors: [] };
 }

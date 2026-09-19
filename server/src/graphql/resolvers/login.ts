@@ -10,7 +10,11 @@ import type { GraphQLContext } from "../context.js";
 import type { GraphQLUserError } from "../userErrors.js";
 
 type LoginInput = { username: string; password: string };
-type LoginPayload = { user: User | null; userErrors: GraphQLUserError[] };
+type LoginPayload = {
+  user: User | null;
+  accessTokenExpiresAt: Date | null;
+  userErrors: GraphQLUserError[];
+};
 
 // same message for unknown user, wrong password, or deactivated account, so
 // it doesn't reveal which usernames exist
@@ -46,13 +50,21 @@ export async function login(
 ): Promise<LoginPayload> {
   const ip = context.req.ip;
   if (reserveLoginAttempt(input.username, ip)) {
-    return { user: null, userErrors: [RATE_LIMITED] };
+    return {
+      user: null,
+      accessTokenExpiresAt: null,
+      userErrors: [RATE_LIMITED],
+    };
   }
 
   const user = await findUserByUsername(input.username);
   if (!user) {
     await verifyPassword(input.password, await getDummyHash());
-    return { user: null, userErrors: [INVALID_CREDENTIALS] };
+    return {
+      user: null,
+      accessTokenExpiresAt: null,
+      userErrors: [INVALID_CREDENTIALS],
+    };
   }
 
   const passwordMatches = await verifyPassword(
@@ -60,12 +72,16 @@ export async function login(
     user.passwordHash,
   );
   if (!passwordMatches || !user.isActive) {
-    return { user: null, userErrors: [INVALID_CREDENTIALS] };
+    return {
+      user: null,
+      accessTokenExpiresAt: null,
+      userErrors: [INVALID_CREDENTIALS],
+    };
   }
 
   releaseLoginAttempt(input.username, ip);
 
-  await establishSession(user.id, context.res);
+  const { accessTokenExpiresAt } = await establishSession(user.id, context.res);
 
-  return { user, userErrors: [] };
+  return { user, accessTokenExpiresAt, userErrors: [] };
 }

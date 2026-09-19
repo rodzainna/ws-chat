@@ -13,12 +13,35 @@ export function setSessionExpiredHandler(handler: () => void): void {
   onSessionExpired = handler;
 }
 
+const refreshListeners = new Set<() => void>();
+export function onSessionRefreshed(listener: () => void): () => void {
+  refreshListeners.add(listener);
+  return () => refreshListeners.delete(listener);
+}
+
+const REFRESH_BUFFER_MS = 60_000;
+
+let refreshTimer: ReturnType<typeof setTimeout> | undefined;
+
+export function scheduleProactiveRefresh(expiresAtMs: number): void {
+  clearTimeout(refreshTimer);
+  const delay = Math.max(expiresAtMs - Date.now() - REFRESH_BUFFER_MS, 0);
+  refreshTimer = setTimeout(() => {
+    void attemptRefresh();
+  }, delay);
+}
+
+export function cancelProactiveRefresh(): void {
+  clearTimeout(refreshTimer);
+}
+
 const REFRESH_MUTATION = gql`
   mutation RefreshOnAuthError {
     refresh {
       user {
         id
       }
+      accessTokenExpiresAt
       userErrors {
         message
       }
@@ -33,12 +56,22 @@ export function attemptRefresh(): Promise<boolean> {
   if (!refreshPromise) {
     refreshPromise = apolloClient
       .mutate<{
-        refresh: { user: { id: string } | null; userErrors: unknown[] };
+        refresh: {
+          user: { id: string } | null;
+          accessTokenExpiresAt: string | null;
+          userErrors: unknown[];
+        };
       }>({
         mutation: REFRESH_MUTATION,
         fetchPolicy: "no-cache",
       })
-      .then((result) => Boolean(result.data?.refresh.user))
+      .then((result) => {
+        const { user, accessTokenExpiresAt } = result.data?.refresh ?? {};
+        if (!user || !accessTokenExpiresAt) return false;
+        scheduleProactiveRefresh(new Date(accessTokenExpiresAt).getTime());
+        for (const listener of refreshListeners) listener();
+        return true;
+      })
       .catch(() => false)
       .finally(() => {
         refreshPromise = null;

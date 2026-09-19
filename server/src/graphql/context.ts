@@ -6,6 +6,7 @@ export type GraphQLContext = {
   req: Request;
   res: Response;
   userId: string | null;
+  accessTokenExpiresAt: Date | null;
   roomRegistry: RoomRegistry;
   connectionRegistry: ConnectionRegistry;
 };

@@ -132,6 +132,7 @@ export function RoomPage() {
   // works because the server answers a socket's frames in order. (A second
   // tab in the same room can throw this off; accepted.)
   const pendingSendsRef = useRef<string[]>([]);
+  const shiftedMessageIdsRef = useRef<Set<string>>(new Set());
 
   const [adminDeleteMessage] = useMutation<
     {
@@ -190,7 +191,14 @@ export function RoomPage() {
     roomId ?? "",
     {
       onCreated: (message: WsChatMessage) => {
-        if (message.userId === user?.id) {
+        if (
+          message.userId === user?.id &&
+          !shiftedMessageIdsRef.current.has(message.id)
+        ) {
+          if (shiftedMessageIdsRef.current.size > 50) {
+            shiftedMessageIdsRef.current.clear();
+          }
+          shiftedMessageIdsRef.current.add(message.id);
           pendingSendsRef.current.shift();
         }
         setMessages((prev) =>

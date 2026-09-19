@@ -15,12 +15,14 @@ import { users } from "./resolvers/users.js";
 import { rooms } from "./resolvers/rooms.js";
 import { adminRooms } from "./resolvers/adminRooms.js";
 import { me } from "./resolvers/me.js";
+import { accessTokenExpiresAt } from "./resolvers/accessTokenExpiresAt.js";
 import type { MessageWithAuthor } from "../db/messages.js";
 
 export const resolvers = {
   DateTime: DateTimeResolver,
   Query: {
     me,
+    accessTokenExpiresAt,
     rooms,
     messages,
     users,

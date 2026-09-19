@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef } from "react";
+import { onSessionRefreshed } from "@/lib/apollo";
 
 export type WsChatMessage = {
   id: string;
@@ -52,59 +53,101 @@ export function useChatSocket(roomId: string, handlers: ChatSocketHandlers) {
   const socketRef = useRef<WebSocket | null>(null);
 
   useEffect(() => {
-    const socket = new WebSocket(wsUrl());
-    socketRef.current = socket;
-    let closingIntentionally = false;
+    function connect(
+      onJoined: () => void,
+      onCloseBeforeJoin?: () => void,
+    ): {
+      socket: WebSocket;
+      markIntentional: () => void;
+    } {
+      const socket = new WebSocket(wsUrl());
+      let closingIntentionally = false;
+      let joined = false;
 
-    socket.addEventListener("open", () => {
-      socket.send(JSON.stringify({ type: "join", roomId }));
-    });
+      socket.addEventListener("open", () => {
+        socket.send(JSON.stringify({ type: "join", roomId }));
+      });
 
-    socket.addEventListener("message", (event: MessageEvent<string>) => {
-      const data = JSON.parse(event.data) as ServerMessage;
-      const handlers = handlersRef.current;
+      socket.addEventListener("message", (event: MessageEvent<string>) => {
+        const data = JSON.parse(event.data) as ServerMessage;
+        const handlers = handlersRef.current;
 
-      switch (data.type) {
-        case "joined":
-          handlers.onJoined?.();
-          return;
-        case "message_created":
-          handlers.onCreated?.(data.message);
-          return;
-        case "message_edited":
-          handlers.onEdited?.(data.messageId, data.content, data.editedAt);
-          return;
-        case "message_deleted":
-          handlers.onDeleted?.(data.messageId);
-          return;
-        case "session_expired":
-          closingIntentionally = true;
-          handlers.onError?.(
-            "SESSION_EXPIRED",
-            SESSION_EXPIRED_MESSAGES[data.reason] ??
-              DEFAULT_SESSION_EXPIRED_MESSAGE,
-          );
-          return;
-        case "error":
-          handlers.onError?.(data.code, data.message);
-          return;
-      }
-    });
+        switch (data.type) {
+          case "joined":
+            joined = true;
+            onJoined();
+            handlers.onJoined?.();
+            return;
+          case "message_created":
+            handlers.onCreated?.(data.message);
+            return;
+          case "message_edited":
+            handlers.onEdited?.(data.messageId, data.content, data.editedAt);
+            return;
+          case "message_deleted":
+            handlers.onDeleted?.(data.messageId);
+            return;
+          case "session_expired":
+            closingIntentionally = true;
+            handlers.onError?.(
+              "SESSION_EXPIRED",
+              SESSION_EXPIRED_MESSAGES[data.reason] ??
+                DEFAULT_SESSION_EXPIRED_MESSAGE,
+            );
+            return;
+          case "error":
+            handlers.onError?.(data.code, data.message);
+            return;
+        }
+      });
 
-    socket.addEventListener("close", () => {
-      if (closingIntentionally) return;
-      handlersRef.current.onError?.(
-        "CONNECTION_LOST",
-        "Connection lost — reload the page to reconnect.",
+      socket.addEventListener("close", () => {
+        if (!joined && onCloseBeforeJoin) {
+          onCloseBeforeJoin();
+          return;
+        }
+        if (closingIntentionally) return;
+        handlersRef.current.onError?.(
+          "CONNECTION_LOST",
+          "Connection lost — reload the page to reconnect.",
+        );
+      });
+
+      return { socket, markIntentional: () => (closingIntentionally = true) };
+    }
+
+    let active = connect(() => {});
+    socketRef.current = active.socket;
+
+    let pending: ReturnType<typeof connect> | null = null;
+
+    const unsubscribe = onSessionRefreshed(() => {
+      if (pending) return;
+      pending = connect(
+        () => {
+          active.markIntentional();
+          active.socket.close();
+          socketRef.current = pending!.socket;
+          active = pending!;
+          pending = null;
+        },
+        () => {
+          pending = null;
+        },
       );
     });
 
     return () => {
-      closingIntentionally = true;
-      if (socket.readyState === WebSocket.OPEN) {
-        socket.send(JSON.stringify({ type: "leave", roomId }));
+      unsubscribe();
+      active.markIntentional();
+      if (active.socket.readyState === WebSocket.OPEN) {
+        active.socket.send(JSON.stringify({ type: "leave", roomId }));
       }
-      socket.close();
+      active.socket.close();
+      if (pending) {
+        pending.markIntentional();
+        pending.socket.close();
+      }
       socketRef.current = null;
     };
   }, [roomId]);

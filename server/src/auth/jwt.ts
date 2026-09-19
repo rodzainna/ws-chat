@@ -52,14 +52,17 @@ export function getAccessTokenExpiryMs(): number {
   return cachedExpiryMs;
 }
 
-export function issueToken(userId: string): Promise<string> {
+export async function issueToken(
+  userId: string,
+): Promise<{ token: string; expiresAt: Date }> {
   const expiresAt = new Date(Date.now() + getAccessTokenExpiryMs());
-  return new SignJWT({})
+  const token = await new SignJWT({})
     .setProtectedHeader({ alg: ALGORITHM })
     .setSubject(userId)
     .setIssuedAt()
     .setExpirationTime(expiresAt)
     .sign(getSecret());
+  return { token, expiresAt };
 }
 
 async function verifyAndDecode(token: string): Promise<JWTPayload | null> {
@@ -76,12 +79,7 @@ async function verifyAndDecode(token: string): Promise<JWTPayload | null> {
   }
 }
 
-export async function verifyToken(token: string): Promise<string | null> {
-  const payload = await verifyAndDecode(token);
-  return payload && typeof payload.sub === "string" ? payload.sub : null;
-}
-
-export async function verifyTokenWithExpiry(
+export async function verifyToken(
   token: string,
 ): Promise<{ userId: string; expiresAt: number } | null> {
   const payload = await verifyAndDecode(token);
