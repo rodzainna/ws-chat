@@ -2,10 +2,22 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { useParams } from "react-router";
 import { gql, useMutation, useQuery } from "@apollo/client";
 import { toast } from "sonner";
+import { Loader2Icon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/auth/useAuth";
 import { useChatSocket, type WsChatMessage } from "@/ws/useChatSocket";
@@ -113,6 +125,8 @@ export function RoomPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState("");
   const [socketError, setSocketError] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [deletePending, setDeletePending] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   // sent-but-unconfirmed drafts, so a rate-limited send can be restored. FIFO
   // works because the server answers a socket's frames in order. (A second
@@ -200,6 +214,10 @@ export function RoomPage() {
               : m,
           ),
         );
+        setConfirmDeleteId((current) =>
+          current === messageId ? null : current,
+        );
+        setDeletePending(false);
       },
       onError: (code, message) => {
         if (code === "RATE_LIMITED") {
@@ -211,6 +229,7 @@ export function RoomPage() {
           return;
         }
         setSocketError(message);
+        setDeletePending(false);
       },
     },
   );
@@ -256,6 +275,18 @@ export function RoomPage() {
       }
     } catch {
       toast.error("Could not delete message — you may no longer be an admin");
+    }
+  }
+
+  function confirmDelete(message: ChatMessage) {
+    setDeletePending(true);
+    if (message.userId === user?.id) {
+      deleteMessage(message.id);
+    } else {
+      void handleAdminDelete(message.id).finally(() => {
+        setDeletePending(false);
+        setConfirmDeleteId(null);
+      });
     }
   }
 
@@ -310,18 +341,52 @@ export function RoomPage() {
                           </Button>
                         )}
                         {(isOwn || user?.globalRole === "ADMIN") && (
-                          <Button
-                            type="button"
-                            variant="linkMuted"
-                            size="inline"
-                            onClick={() =>
-                              isOwn
-                                ? deleteMessage(message.id)
-                                : void handleAdminDelete(message.id)
+                          <AlertDialog
+                            open={confirmDeleteId === message.id}
+                            onOpenChange={(open) =>
+                              setConfirmDeleteId(open ? message.id : null)
                             }
                           >
-                            Delete
-                          </Button>
+                            <AlertDialogTrigger asChild>
+                              <Button
+                                type="button"
+                                variant="linkMuted"
+                                size="inline"
+                              >
+                                Delete
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>
+                                  Delete this message?
+                                </AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  This can't be undone — it'll show as "[message
+                                  deleted]" to everyone in the room.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction
+                                  disabled={deletePending}
+                                  onClick={(event) => {
+                                    event.preventDefault();
+                                    confirmDelete(message);
+                                  }}
+                                >
+                                  {deletePending ? (
+                                    <>
+                                      <Loader2Icon className="animate-spin" />
+                                      Deleting…
+                                    </>
+                                  ) : (
+                                    "Delete"
+                                  )}
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
                         )}
                       </span>
                     )}

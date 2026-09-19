@@ -1,7 +1,19 @@
 import { useState } from "react";
 import { gql, useApolloClient, useMutation } from "@apollo/client";
+import { Loader2Icon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { AdminPagination } from "@/components/AdminPagination";
 import { usePagedConnection } from "@/hooks/usePagedConnection";
 
@@ -92,6 +104,7 @@ export function AdminRoomsSection() {
 
   const [pendingRoomIds, setPendingRoomIds] = useState<Set<string>>(new Set());
   const [rowErrors, setRowErrors] = useState<Record<string, string>>({});
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   function addPending(roomId: string) {
     setPendingRoomIds((prev) => new Set(prev).add(roomId));
@@ -150,15 +163,53 @@ export function AdminRoomsSection() {
                     (you're a member)
                   </span>
                 )}
-                <Button
-                  size="sm"
-                  variant="destructive"
-                  className="ml-auto"
-                  disabled={isPending}
-                  onClick={() => void handleDelete(r.id)}
+                <AlertDialog
+                  open={confirmDeleteId === r.id}
+                  onOpenChange={(open) =>
+                    setConfirmDeleteId(open ? r.id : null)
+                  }
                 >
-                  Delete
-                </Button>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      className="ml-auto"
+                      disabled={isPending}
+                    >
+                      Delete
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Delete #{r.name}?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Members will be disconnected and it disappears from
+                        everyone's room list. This can't be undone from here.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction
+                        disabled={isPending}
+                        onClick={(event) => {
+                          event.preventDefault();
+                          void handleDelete(r.id).then(() =>
+                            setConfirmDeleteId(null),
+                          );
+                        }}
+                      >
+                        {isPending ? (
+                          <>
+                            <Loader2Icon className="animate-spin" />
+                            Deleting…
+                          </>
+                        ) : (
+                          "Delete"
+                        )}
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               </div>
               {rowErrors[r.id] && (
                 <p className="text-xs text-destructive">{rowErrors[r.id]}</p>

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { gql, useApolloClient, useMutation } from "@apollo/client";
+import { Loader2Icon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -9,6 +10,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { AdminPagination } from "@/components/AdminPagination";
 import { usePagedConnection } from "@/hooks/usePagedConnection";
 import { useAuth } from "@/auth/useAuth";
@@ -135,6 +147,9 @@ export function AdminUsersSection() {
   const [optimisticRoles, setOptimisticRoles] = useState<
     Record<string, GlobalRole>
   >({});
+  const [confirmDeactivateId, setConfirmDeactivateId] = useState<string | null>(
+    null,
+  );
 
   function addPending(userId: string) {
     setPendingUserIds((prev) => new Set(prev).add(userId));
@@ -247,14 +262,54 @@ export function AdminUsersSection() {
                     ))}
                   </SelectContent>
                 </Select>
-                <Button
-                  size="sm"
-                  variant="destructive"
-                  disabled={!u.isActive || isPending}
-                  onClick={() => void handleDeactivate(u.id)}
+                <AlertDialog
+                  open={confirmDeactivateId === u.id}
+                  onOpenChange={(open) =>
+                    setConfirmDeactivateId(open ? u.id : null)
+                  }
                 >
-                  Deactivate
-                </Button>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      disabled={!u.isActive || isPending}
+                    >
+                      Deactivate
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>
+                        Deactivate {u.username}?
+                      </AlertDialogTitle>
+                      <AlertDialogDescription>
+                        They'll be signed out and unable to log back in. There's
+                        no undo for this from the admin screen.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction
+                        disabled={isPending}
+                        onClick={(event) => {
+                          event.preventDefault();
+                          void handleDeactivate(u.id).then(() =>
+                            setConfirmDeactivateId(null),
+                          );
+                        }}
+                      >
+                        {isPending ? (
+                          <>
+                            <Loader2Icon className="animate-spin" />
+                            Deactivating…
+                          </>
+                        ) : (
+                          "Deactivate"
+                        )}
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               </div>
               {rowErrors[u.id] && (
                 <p className="text-xs text-destructive">{rowErrors[u.id]}</p>
