@@ -241,20 +241,22 @@ export function RoomPage() {
                     )}
                     {isOwn && !message.deleted && !isEditing && (
                       <span className="hidden gap-1 group-hover:flex">
-                        <button
+                        <Button
                           type="button"
-                          className="hover:underline hover:cursor-pointer"
+                          variant="linkMuted"
+                          size="inline"
                           onClick={() => startEdit(message)}
                         >
                           Edit
-                        </button>
-                        <button
+                        </Button>
+                        <Button
                           type="button"
-                          className="hover:underline hover:cursor-pointer"
+                          variant="linkMuted"
+                          size="inline"
                           onClick={() => deleteMessage(message.id)}
                         >
                           Delete
-                        </button>
+                        </Button>
                       </span>
                     )}
                   </div>
