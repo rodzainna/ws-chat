@@ -204,7 +204,12 @@ export function RoomSidebar() {
           </NavLink>
         ))}
 
-        {memberRooms.length === 0 && (!canJoin || otherRooms.length === 0) && (
+        {memberRooms.length === 0 && !canJoin && (
+          <p className="p-2 text-sm text-muted-foreground">
+            You haven't been added to any rooms yet.
+          </p>
+        )}
+        {memberRooms.length === 0 && canJoin && otherRooms.length === 0 && (
           <p className="p-2 text-sm text-muted-foreground">
             No rooms yet — create one to get started.
           </p>

@@ -6,6 +6,8 @@ type Connection<T> = {
   totalCount: number;
 };
 
+const EMPTY_ITEMS: never[] = [];
+
 export function usePagedConnection<T>(
   fetchPage: (after: string | null) => Promise<Connection<T>>,
   pageSize: number,
@@ -54,7 +56,7 @@ export function usePagedConnection<T>(
   }, [refreshKey]);
 
   return {
-    items: pages[currentPage] ?? [],
+    items: pages[currentPage] ?? EMPTY_ITEMS,
     currentPage,
     totalPages: Math.max(Math.ceil(totalCount / pageSize), 1),
     setCurrentPage,

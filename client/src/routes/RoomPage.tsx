@@ -281,7 +281,10 @@ export function RoomPage() {
   function confirmDelete(message: ChatMessage) {
     setDeletePending(true);
     if (message.userId === user?.id) {
-      deleteMessage(message.id);
+      if (!deleteMessage(message.id)) {
+        setDeletePending(false);
+        toast.error("Could not delete — connection lost. Reload the page.");
+      }
     } else {
       void handleAdminDelete(message.id).finally(() => {
         setDeletePending(false);

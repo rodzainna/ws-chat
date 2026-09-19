@@ -151,6 +151,22 @@ export function AdminUsersSection() {
     null,
   );
 
+  const [prevUsers, setPrevUsers] = useState(users);
+  if (users !== prevUsers) {
+    setPrevUsers(users);
+    setOptimisticRoles((prev) => {
+      let changed = false;
+      const next = { ...prev };
+      for (const u of users) {
+        if (u.id in next && next[u.id] === u.globalRole) {
+          delete next[u.id];
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }
+
   function addPending(userId: string) {
     setPendingUserIds((prev) => new Set(prev).add(userId));
   }
@@ -166,9 +182,11 @@ export function AdminUsersSection() {
     userId: string,
     mutate: () => Promise<RowActionPayload | undefined>,
     fallbackMessage: string,
+    onSettled?: (succeeded: boolean) => void,
   ) {
     addPending(userId);
     setRowErrors((prev) => ({ ...prev, [userId]: "" }));
+    let succeeded = false;
     try {
       const payload = await mutate();
       if (!payload?.user) {
@@ -177,6 +195,7 @@ export function AdminUsersSection() {
           [userId]: payload?.userErrors[0]?.message ?? fallbackMessage,
         }));
       } else {
+        succeeded = true;
         setRefreshKey((key) => key + 1);
       }
     } catch {
@@ -186,6 +205,7 @@ export function AdminUsersSection() {
       }));
     } finally {
       removePending(userId);
+      onSettled?.(succeeded);
     }
   }
 
@@ -197,12 +217,16 @@ export function AdminUsersSection() {
         (await setGlobalRole({ variables: { userId, role } })).data
           ?.setGlobalRole,
       "Could not change role",
+      (succeeded) => {
+        if (!succeeded) {
+          setOptimisticRoles((prev) => {
+            const next = { ...prev };
+            delete next[userId];
+            return next;
+          });
+        }
+      },
     );
-    setOptimisticRoles((prev) => {
-      const next = { ...prev };
-      delete next[userId];
-      return next;
-    });
   }
 
   async function handleDeactivate(userId: string) {
