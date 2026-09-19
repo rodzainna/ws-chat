@@ -10,7 +10,11 @@ import {
   type ClientMessage,
   type ServerMessage,
 } from "./messages.js";
-import { canAccessRoom, findRoomMembersByUsernames } from "../db/rooms.js";
+import {
+  canAccessRoom,
+  findRoomIdsForUser,
+  findRoomMembersByUsernames,
+} from "../db/rooms.js";
 import {
   createMessage,
   findMessageById,
@@ -265,6 +269,24 @@ function startHeartbeat(wss: WebSocketServer): void {
   }, HEARTBEAT_INTERVAL_MS).unref();
 }
 
+async function broadcastPresenceChange(
+  registry: RoomRegistry,
+  userId: string,
+  online: boolean,
+): Promise<void> {
+  const roomIds = await findRoomIdsForUser(userId);
+  for (const roomId of roomIds) {
+    registry.broadcast(
+      roomId,
+      JSON.stringify({
+        type: "presence_changed",
+        userId,
+        online,
+      } satisfies ServerMessage),
+    );
+  }
+}
+
 export function registerWsHandlers(
   wss: WebSocketServer,
   registry: RoomRegistry,
@@ -286,7 +308,12 @@ export function registerWsHandlers(
       authSocket.isAlive = true;
     });
 
-    connectionRegistry.register(userId, socket);
+    const justCameOnline = connectionRegistry.register(userId, socket);
+    if (justCameOnline) {
+      broadcastPresenceChange(registry, userId, true).catch((err: unknown) => {
+        console.error("Error broadcasting presence (online):", err);
+      });
+    }
 
     const expiryTimer = setTimeout(
       () => {
@@ -320,7 +347,14 @@ export function registerWsHandlers(
     socket.on("close", () => {
       clearTimeout(expiryTimer);
       registry.leaveAll(socket);
-      connectionRegistry.unregister(userId, socket);
+      const justWentOffline = connectionRegistry.unregister(userId, socket);
+      if (justWentOffline) {
+        broadcastPresenceChange(registry, userId, false).catch(
+          (err: unknown) => {
+            console.error("Error broadcasting presence (offline):", err);
+          },
+        );
+      }
       console.log("client disconnected");
     });
 

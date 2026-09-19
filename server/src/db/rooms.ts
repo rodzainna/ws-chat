@@ -74,6 +74,14 @@ export async function findRoomMembersByUsernames(
   return members.map((m) => m.user);
 }
 
+export async function findRoomIdsForUser(userId: string): Promise<string[]> {
+  const memberships = await getPrisma().roomMember.findMany({
+    where: { userId },
+    select: { roomId: true },
+  });
+  return memberships.map((m) => m.roomId);
+}
+
 // deletedAt: null in the WHERE so only one concurrent delete wins (and
 // broadcasts)
 export async function softDeleteRoom(id: string): Promise<Room | null> {
