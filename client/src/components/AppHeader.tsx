@@ -28,6 +28,11 @@ export function AppHeader() {
         Chat
       </Link>
       <div className="flex items-center gap-3 text-sm">
+        {user?.globalRole === "ADMIN" && (
+          <Link to="/admin" className="text-muted-foreground hover:underline">
+            Admin
+          </Link>
+        )}
         <span className="text-muted-foreground">{user?.username}</span>
         <Button variant="outline" size="sm" onClick={() => void handleLogout()}>
           Log out
