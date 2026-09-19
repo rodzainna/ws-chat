@@ -22,12 +22,16 @@ type ServerMessage =
       editedAt: string;
     }
   | { type: "message_deleted"; messageId: string }
-  | { type: "session_expired"; reason: "deactivated" | "token_expired" }
+  | {
+      type: "session_expired";
+      reason: "deactivated" | "token_expired" | "logged_out";
+    }
   | { type: "error"; code: string; message: string };
 
 const SESSION_EXPIRED_MESSAGES: Record<string, string> = {
   deactivated: "Your account has been deactivated.",
   token_expired: "Your session expired — reload the page to log back in.",
+  logged_out: "You've been logged out.",
 };
 const DEFAULT_SESSION_EXPIRED_MESSAGE =
   "Your session has ended — reload the page.";
