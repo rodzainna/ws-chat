@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { NavLink, useNavigate } from "react-router";
 import { gql, useMutation, useQuery } from "@apollo/client";
+import { ChevronRightIcon } from "lucide-react";
 import { ROOMS_QUERY } from "@/graphql/queries";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -64,6 +65,8 @@ export function RoomSidebar() {
   const { data, loading, error, refetch } = useQuery<{ rooms: Room[] }>(
     ROOMS_QUERY,
   );
+  const memberRooms = data?.rooms.filter((room) => room.isMember) ?? [];
+  const otherRooms = data?.rooms.filter((room) => !room.isMember) ?? [];
 
   const [createRoom, { loading: creating }] = useMutation<
     { createRoom: RoomMutationPayload },
@@ -79,6 +82,7 @@ export function RoomSidebar() {
   const [isPrivate, setIsPrivate] = useState(false);
   const [createErrors, setCreateErrors] = useState<UserError[]>([]);
   const [joinError, setJoinError] = useState<string | null>(null);
+  const [otherRoomsOpen, setOtherRoomsOpen] = useState(false);
 
   const canCreate = user?.globalRole !== "RESTRICTED";
   const canJoin = user?.globalRole !== "RESTRICTED";
@@ -103,16 +107,7 @@ export function RoomSidebar() {
     void navigate(`/rooms/${payload.room.id}`);
   }
 
-  async function handleRoomClick(room: Room) {
-    if (room.isMember) {
-      void navigate(`/rooms/${room.id}`);
-      return;
-    }
-    if (!canJoin) {
-      setJoinError("Restricted users can't join rooms directly.");
-      return;
-    }
-
+  async function handleJoin(room: Room) {
     setJoinError(null);
     const result = await joinRoom({ variables: { roomId: room.id } });
     const payload = result.data?.joinRoom;
@@ -186,50 +181,74 @@ export function RoomSidebar() {
           <p className="p-2 text-sm text-destructive">{joinError}</p>
         )}
 
-        {data?.rooms.map((room) => {
-          const disabled = !room.isMember && !canJoin;
-          return room.isMember ? (
-            <NavLink
-              key={room.id}
-              to={`/rooms/${room.id}`}
-              className={({ isActive }) =>
-                cn(
-                  "flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted",
-                  isActive && "bg-muted font-medium",
-                )
-              }
-            >
-              <span className="truncate"># {room.name}</span>
-              {room.isPrivate && (
-                <Badge variant="secondary" className="ml-auto shrink-0">
-                  Private
-                </Badge>
-              )}
-            </NavLink>
-          ) : (
-            <button
-              key={room.id}
-              type="button"
-              disabled={disabled || joining}
-              onClick={() => void handleRoomClick(room)}
-              className={cn(
-                "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-muted-foreground hover:bg-muted",
-                disabled &&
-                  "cursor-not-allowed opacity-50 hover:bg-transparent",
-              )}
-            >
-              <span className="truncate"># {room.name}</span>
-              {!disabled && (
-                <span className="ml-auto shrink-0 text-xs">Join</span>
-              )}
-            </button>
-          );
-        })}
+        {memberRooms.map((room) => (
+          <NavLink
+            key={room.id}
+            to={`/rooms/${room.id}`}
+            className={({ isActive }) =>
+              cn(
+                "flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted",
+                isActive && "bg-muted font-medium",
+              )
+            }
+          >
+            <span className="truncate"># {room.name}</span>
+            {room.isPrivate && (
+              <Badge variant="secondary" className="ml-auto shrink-0">
+                Private
+              </Badge>
+            )}
+          </NavLink>
+        ))}
 
-        {data?.rooms.length === 0 && (
+        {memberRooms.length === 0 && otherRooms.length === 0 && (
           <p className="p-2 text-sm text-muted-foreground">
             No rooms yet — create one to get started.
           </p>
+        )}
+
+        {otherRooms.length > 0 && (
+          <div className="mt-2">
+            <button
+              type="button"
+              onClick={() => setOtherRoomsOpen((open) => !open)}
+              aria-expanded={otherRoomsOpen}
+              className="flex w-full items-center gap-1 rounded-md px-2 py-1.5 text-left text-xs font-medium text-muted-foreground hover:bg-muted"
+            >
+              <ChevronRightIcon
+                className={cn(
+                  "size-3.5 shrink-0 transition-transform",
+                  otherRoomsOpen && "rotate-90",
+                )}
+              />
+              <span className="truncate">
+                Other channels ({otherRooms.length})
+              </span>
+            </button>
+            {otherRoomsOpen && (
+              <div className="mt-1">
+                {otherRooms.map((room) => (
+                  <div
+                    key={room.id}
+                    className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-muted-foreground"
+                  >
+                    <span className="truncate"># {room.name}</span>
+                    {canJoin && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="ml-auto shrink-0"
+                        disabled={joining}
+                        onClick={() => void handleJoin(room)}
+                      >
+                        Join
+                      </Button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         )}
       </div>
     </aside>
