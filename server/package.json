@@ -12,7 +12,8 @@
     "start": "node dist/index.js",
     "seed": "tsx src/scripts/seed.ts",
     "postinstall": "prisma generate",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:integration": "vitest run -c vitest.integration.config.ts"
   },
   "dependencies": {
     "@apollo/server": "^5.5.1",
