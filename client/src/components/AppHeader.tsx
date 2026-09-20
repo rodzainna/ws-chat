@@ -17,9 +17,12 @@ export function AppHeader() {
   const [logout] = useMutation(LOGOUT_MUTATION);
 
   async function handleLogout() {
-    await logout();
-    clearUser();
-    void navigate("/login", { replace: true });
+    try {
+      await logout();
+    } finally {
+      clearUser();
+      void navigate("/login", { replace: true });
+    }
   }
 
   return (

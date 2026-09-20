@@ -5,7 +5,7 @@ import { ROOMS_QUERY } from "@/graphql/queries";
 type Room = { id: string; isMember: boolean };
 
 export function NoRoomSelected() {
-  const { data, loading } = useQuery<{ rooms: Room[] }>(ROOMS_QUERY);
+  const { data, loading, error } = useQuery<{ rooms: Room[] }>(ROOMS_QUERY);
 
   const firstOwnRoom = data?.rooms.find((room) => room.isMember);
 
@@ -15,7 +15,11 @@ export function NoRoomSelected() {
 
   return (
     <div className="flex flex-1 items-center justify-center text-muted-foreground">
-      {loading ? "Loading…" : "Select a room from the sidebar, or create one."}
+      {loading
+        ? "Loading…"
+        : error
+          ? "Failed to load rooms."
+          : "Select a room from the sidebar, or create one."}
     </div>
   );
 }
