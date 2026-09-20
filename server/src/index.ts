@@ -32,7 +32,18 @@ const MAX_WS_PAYLOAD_BYTES = 16 * 1024;
 const SHUTDOWN_GRACE_MS = 3000;
 const MAX_QUERY_DEPTH = 10;
 
-const armor = new ApolloArmor({ maxDepth: { n: MAX_QUERY_DEPTH } });
+// depth limiting alone doesn't stop the same expensive field repeated under
+// many aliases at a shallow depth, hence maxAliases. graphql-armor enables
+// every protection unless disabled, so all six are listed explicitly; the
+// library defaults are well above anything this schema's queries need.
+const armor = new ApolloArmor({
+  maxDepth: { n: MAX_QUERY_DEPTH },
+  maxAliases: {},
+  costLimit: {},
+  maxTokens: {},
+  maxDirectives: {},
+  blockFieldSuggestion: {}, // masks "Did you mean ...?" hints that'd otherwise help enumerate the schema with introspection off
+});
 const armorProtection = armor.protect();
 const armorPlugins =
   armorProtection.plugins as ApolloServerPlugin<GraphQLContext>[];
