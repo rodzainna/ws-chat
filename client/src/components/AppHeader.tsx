@@ -19,6 +19,7 @@ export function AppHeader() {
   async function handleLogout() {
     try {
       await logout();
+    } catch {
     } finally {
       clearUser();
       void navigate("/login", { replace: true });

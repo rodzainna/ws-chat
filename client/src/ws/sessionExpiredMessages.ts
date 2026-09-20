@@ -8,12 +8,31 @@ export const DEFAULT_SESSION_EXPIRED_MESSAGE =
 
 let pendingMessage: string | null = null;
 
-export function setPendingSessionExpiredMessage(message: string): void {
-  pendingMessage = message;
+function setPendingSessionExpiredMessage(message: string): void {
+  pendingMessage ??= message;
 }
 
 export function consumePendingSessionExpiredMessage(): string | null {
   const message = pendingMessage;
   pendingMessage = null;
   return message;
+}
+
+type NavigateFn = (
+  path: string,
+  options?: { replace?: boolean },
+) => void | Promise<void>;
+
+export function expireSession(
+  navigate: NavigateFn,
+  clearUser: () => void,
+  reason?: string,
+): void {
+  setPendingSessionExpiredMessage(
+    reason
+      ? (SESSION_EXPIRED_MESSAGES[reason] ?? DEFAULT_SESSION_EXPIRED_MESSAGE)
+      : DEFAULT_SESSION_EXPIRED_MESSAGE,
+  );
+  clearUser();
+  void navigate("/login", { replace: true });
 }

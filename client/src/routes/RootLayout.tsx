@@ -4,10 +4,7 @@ import { setSessionExpiredHandler } from "@/lib/apollo";
 import { AuthProvider } from "@/auth/AuthContext";
 import { useAuth } from "@/auth/useAuth";
 import { Toaster } from "@/components/ui/sonner";
-import {
-  DEFAULT_SESSION_EXPIRED_MESSAGE,
-  setPendingSessionExpiredMessage,
-} from "@/ws/sessionExpiredMessages";
+import { expireSession } from "@/ws/sessionExpiredMessages";
 
 function SessionExpiredWiring() {
   const navigate = useNavigate();
@@ -15,9 +12,7 @@ function SessionExpiredWiring() {
 
   useEffect(() => {
     setSessionExpiredHandler(() => {
-      setPendingSessionExpiredMessage(DEFAULT_SESSION_EXPIRED_MESSAGE);
-      clearUser();
-      void navigate("/login", { replace: true });
+      expireSession(navigate, clearUser);
     });
   }, [navigate, clearUser]);
 
