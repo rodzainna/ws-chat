@@ -1,0 +1,93 @@
+import { describe, it, expect } from "vitest";
+import {
+  setupIntegrationTest,
+  setUpRoomWithTwoJoinedMembers,
+} from "./fixtures.js";
+import { registerUsers, createRoom, connectSocket } from "./testClient.js";
+
+describe("room join/leave and broadcast", () => {
+  const ctx = setupIntegrationTest();
+
+  it("lets a member join a public room and receive a joined confirmation", async () => {
+    const [alice] = await registerUsers(ctx.server.baseUrl, ["alice"]);
+    const room = await createRoom(ctx.server.baseUrl, alice, "general");
+    const socket = await connectSocket(ctx.server.wsUrl, alice.cookies);
+
+    socket.send({ type: "join", roomId: room.id });
+    const joined = await socket.waitFor((m) => m.type === "joined");
+    expect(joined).toEqual({ type: "joined", roomId: room.id });
+
+    socket.close();
+  });
+
+  it("rejects joining a private room you're not a member of", async () => {
+    const [alice, bob] = await registerUsers(ctx.server.baseUrl, [
+      "alice",
+      "bob",
+    ]);
+    const room = await createRoom(
+      ctx.server.baseUrl,
+      alice,
+      "leadership",
+      true,
+    );
+    const bobSocket = await connectSocket(ctx.server.wsUrl, bob.cookies);
+
+    bobSocket.send({ type: "join", roomId: room.id });
+    const error = await bobSocket.waitFor((m) => m.type === "error");
+    expect(error.code).toBe("FORBIDDEN");
+
+    bobSocket.close();
+  });
+
+  it("broadcasts a sent message to every other member joined to the room, in real time", async () => {
+    const { aliceSocket, bobSocket, room } =
+      await setUpRoomWithTwoJoinedMembers(ctx.server, "general");
+
+    aliceSocket.send({ type: "send", roomId: room.id, content: "hi bob" });
+
+    const received = await bobSocket.waitFor(
+      (m) => m.type === "message_created",
+    );
+    const message = received.message as { content: string; username: string };
+    expect(message.content).toBe("hi bob");
+    expect(message.username).toBe("alice");
+
+    aliceSocket.close();
+    bobSocket.close();
+  });
+
+  it("stops delivering a room's messages once you've left it", async () => {
+    const { aliceSocket, bobSocket, room } =
+      await setUpRoomWithTwoJoinedMembers(ctx.server, "general");
+
+    bobSocket.send({ type: "leave", roomId: room.id });
+    bobSocket.send({ type: "join", roomId: "does-not-exist" });
+    await bobSocket.waitFor(
+      (m) => m.type === "error" && m.code === "FORBIDDEN",
+    );
+
+    aliceSocket.send({
+      type: "send",
+      roomId: room.id,
+      content: "are you there?",
+    });
+
+    await bobSocket.assertNoneWithin((m) => m.type === "message_created");
+
+    aliceSocket.close();
+    bobSocket.close();
+  });
+
+  it("rejects sending to a room you haven't joined over this socket", async () => {
+    const [alice] = await registerUsers(ctx.server.baseUrl, ["alice"]);
+    const room = await createRoom(ctx.server.baseUrl, alice, "general");
+    const socket = await connectSocket(ctx.server.wsUrl, alice.cookies);
+
+    socket.send({ type: "send", roomId: room.id, content: "hello" });
+    const error = await socket.waitFor((m) => m.type === "error");
+    expect(error.code).toBe("NOT_IN_ROOM");
+
+    socket.close();
+  });
+});
