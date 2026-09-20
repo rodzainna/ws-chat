@@ -97,6 +97,13 @@ export async function findRoomIdsForUser(userId: string): Promise<string[]> {
   return memberships.map((m) => m.roomId);
 }
 
+export async function findMemberUserIdsForRoom(
+  roomId: string,
+): Promise<string[]> {
+  const members = await findRoomMembers(roomId);
+  return members.map((m) => m.user.id);
+}
+
 // deletedAt: null in the WHERE so only one concurrent delete wins (and
 // broadcasts)
 export async function softDeleteRoom(id: string): Promise<Room | null> {

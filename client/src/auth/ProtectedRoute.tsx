@@ -1,5 +1,23 @@
-import { Navigate, Outlet } from "react-router";
+import { useEffect } from "react";
+import { Navigate, Outlet, useNavigate } from "react-router";
 import { useAuth } from "./useAuth";
+import { ChatConnectionProvider } from "@/ws/ChatConnectionProvider";
+import { useChatConnection } from "@/ws/useChatConnection";
+
+function GlobalSessionExpiredHandler() {
+  const { subscribe } = useChatConnection();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    return subscribe((event) => {
+      if (event.type === "session_expired") {
+        void navigate("/login", { replace: true });
+      }
+    });
+  }, [subscribe, navigate]);
+
+  return null;
+}
 
 export function ProtectedRoute() {
   const { user, loading } = useAuth();
@@ -16,5 +34,10 @@ export function ProtectedRoute() {
     return <Navigate to="/login" replace />;
   }
 
-  return <Outlet />;
+  return (
+    <ChatConnectionProvider>
+      <GlobalSessionExpiredHandler />
+      <Outlet />
+    </ChatConnectionProvider>
+  );
 }
