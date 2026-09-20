@@ -161,12 +161,18 @@ app.get("/health", (_req, res) => {
 });
 
 app.use(express.static(CLIENT_DIST_DIR));
+// SPA fallback for client-side routes. Path-less middleware because
+// Express 5 dropped the bare "*" wildcard.
 app.use((req, res, next) => {
-  if (req.method !== "GET") {
+  if (req.method !== "GET" && req.method !== "HEAD") {
     next();
     return;
   }
-  res.sendFile(path.join(CLIENT_DIST_DIR, "index.html"));
+  res.sendFile(path.join(CLIENT_DIST_DIR, "index.html"), (err: unknown) => {
+    if (!err) return;
+    console.error("Failed to serve SPA index.html:", err);
+    if (!res.headersSent) res.status(500).send("Internal server error");
+  });
 });
 
 function delay(ms: number): Promise<void> {
