@@ -1,16 +1,12 @@
 import { useCallback, useEffect, useRef } from "react";
 import type { ConnectionEvent, WsChatMessage } from "./ChatConnectionProvider";
 import { useChatConnection } from "./useChatConnection";
+import {
+  SESSION_EXPIRED_MESSAGES,
+  DEFAULT_SESSION_EXPIRED_MESSAGE,
+} from "./sessionExpiredMessages";
 
 export type { WsChatMessage };
-
-const SESSION_EXPIRED_MESSAGES: Record<string, string> = {
-  deactivated: "Your account has been deactivated.",
-  token_expired: "Your session expired — reload the page to log back in.",
-  logged_out: "You've been logged out.",
-};
-const DEFAULT_SESSION_EXPIRED_MESSAGE =
-  "Your session has ended — reload the page.";
 
 type ChatSocketHandlers = {
   onJoined?: () => void;

@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/auth/useAuth";
+import { consumePendingSessionExpiredMessage } from "@/ws/sessionExpiredMessages";
 
 type UserError = { field: string[]; message: string };
 type AuthPayload = { user: { id: string } | null; userErrors: UserError[] };
@@ -40,6 +41,11 @@ const REGISTER_MUTATION = gql`
 
 export function LoginPage() {
   const { user, loading, refetchUser } = useAuth();
+  // lazy initializer so it's consumed once; a second redirect re-renders
+  // this instance and would read it as already cleared
+  const [sessionExpiredMessage] = useState(() =>
+    consumePendingSessionExpiredMessage(),
+  );
   const [mode, setMode] = useState<"login" | "register">("login");
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
@@ -95,6 +101,11 @@ export function LoginPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
+          {sessionExpiredMessage && (
+            <p className="mb-4 rounded-md bg-muted p-3 text-sm text-muted-foreground">
+              {sessionExpiredMessage}
+            </p>
+          )}
           <form
             onSubmit={(event) => void handleSubmit(event)}
             className="space-y-4"
