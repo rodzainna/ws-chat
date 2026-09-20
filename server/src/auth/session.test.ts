@@ -43,6 +43,15 @@ const NEW_TOKEN = {
   expiresAt: new Date("2099-01-01"),
 };
 
+function makeTokenRow(overrides: { revokedAt: Date | null; expiresAt?: Date }) {
+  return {
+    id: "row-1",
+    userId: "user-1",
+    expiresAt: new Date("2099-01-01"),
+    ...overrides,
+  };
+}
+
 describe("rotateSession", () => {
   beforeEach(() => {
     vi.useFakeTimers();
@@ -78,12 +87,9 @@ describe("rotateSession", () => {
   });
 
   it("treats reuse within the grace window as a benign race, not theft", async () => {
-    findRefreshTokenByPlaintext.mockResolvedValue({
-      id: "row-1",
-      userId: "user-1",
-      revokedAt: new Date("2026-01-01T00:00:00Z"),
-      expiresAt: new Date("2099-01-01"),
-    });
+    findRefreshTokenByPlaintext.mockResolvedValue(
+      makeTokenRow({ revokedAt: new Date("2026-01-01T00:00:00Z") }),
+    );
 
     vi.setSystemTime(new Date("2026-01-01T00:00:05Z"));
     const result = await rotateSession(fakeReq("token"), fakeRes);
@@ -94,12 +100,9 @@ describe("rotateSession", () => {
   });
 
   it("revokes every session for the user on reuse well outside the grace window", async () => {
-    findRefreshTokenByPlaintext.mockResolvedValue({
-      id: "row-1",
-      userId: "user-1",
-      revokedAt: new Date("2026-01-01T00:00:00Z"),
-      expiresAt: new Date("2099-01-01"),
-    });
+    findRefreshTokenByPlaintext.mockResolvedValue(
+      makeTokenRow({ revokedAt: new Date("2026-01-01T00:00:00Z") }),
+    );
 
     vi.setSystemTime(new Date("2026-01-01T00:01:00Z"));
     const result = await rotateSession(fakeReq("token"), fakeRes);
@@ -110,12 +113,9 @@ describe("rotateSession", () => {
   });
 
   it("clears cookies when the token has expired", async () => {
-    findRefreshTokenByPlaintext.mockResolvedValue({
-      id: "row-1",
-      userId: "user-1",
-      revokedAt: null,
-      expiresAt: new Date("2020-01-01"),
-    });
+    findRefreshTokenByPlaintext.mockResolvedValue(
+      makeTokenRow({ revokedAt: null, expiresAt: new Date("2020-01-01") }),
+    );
 
     const result = await rotateSession(fakeReq("token"), fakeRes);
 
@@ -124,12 +124,9 @@ describe("rotateSession", () => {
   });
 
   it("clears cookies when the owning account is no longer active", async () => {
-    findRefreshTokenByPlaintext.mockResolvedValue({
-      id: "row-1",
-      userId: "user-1",
-      revokedAt: null,
-      expiresAt: new Date("2099-01-01"),
-    });
+    findRefreshTokenByPlaintext.mockResolvedValue(
+      makeTokenRow({ revokedAt: null }),
+    );
     findActiveUserById.mockResolvedValue(null);
 
     const result = await rotateSession(fakeReq("token"), fakeRes);
@@ -140,12 +137,9 @@ describe("rotateSession", () => {
 
   it("rotates successfully for a valid, live token", async () => {
     const user = { id: "user-1", isActive: true };
-    findRefreshTokenByPlaintext.mockResolvedValue({
-      id: "row-1",
-      userId: "user-1",
-      revokedAt: null,
-      expiresAt: new Date("2099-01-01"),
-    });
+    findRefreshTokenByPlaintext.mockResolvedValue(
+      makeTokenRow({ revokedAt: null }),
+    );
     findActiveUserById.mockResolvedValue(user);
     const accessTokenExpiresAt = new Date("2026-01-01T00:15:00Z");
     issueToken.mockResolvedValue({
@@ -165,12 +159,9 @@ describe("rotateSession", () => {
   });
 
   it("leaves cookies untouched when it loses the rotation race to a concurrent request", async () => {
-    findRefreshTokenByPlaintext.mockResolvedValue({
-      id: "row-1",
-      userId: "user-1",
-      revokedAt: null,
-      expiresAt: new Date("2099-01-01"),
-    });
+    findRefreshTokenByPlaintext.mockResolvedValue(
+      makeTokenRow({ revokedAt: null }),
+    );
     findActiveUserById.mockResolvedValue({ id: "user-1", isActive: true });
     issueToken.mockResolvedValue({
       token: "access-token",

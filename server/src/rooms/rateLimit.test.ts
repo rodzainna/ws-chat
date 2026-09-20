@@ -46,4 +46,25 @@ describe("tryConsumeRoomCreationToken", () => {
     }
     expect(tryConsumeRoomCreationToken(userId)).toBe(false);
   });
+
+  it("refills partially, proportional to elapsed time", () => {
+    const userId = "user-partial-refill";
+    for (let i = 0; i < CAPACITY; i++) tryConsumeRoomCreationToken(userId);
+    expect(tryConsumeRoomCreationToken(userId)).toBe(false);
+
+    vi.setSystemTime(WINDOW_MS / CAPACITY);
+    expect(tryConsumeRoomCreationToken(userId)).toBe(true);
+    expect(tryConsumeRoomCreationToken(userId)).toBe(false);
+  });
+
+  it("caps refill at full capacity even after a long idle period", () => {
+    const userId = "user-long-idle";
+    for (let i = 0; i < CAPACITY; i++) tryConsumeRoomCreationToken(userId);
+
+    vi.setSystemTime(WINDOW_MS * 100);
+    for (let i = 0; i < CAPACITY; i++) {
+      expect(tryConsumeRoomCreationToken(userId)).toBe(true);
+    }
+    expect(tryConsumeRoomCreationToken(userId)).toBe(false);
+  });
 });

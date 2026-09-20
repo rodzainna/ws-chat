@@ -21,6 +21,15 @@ vi.mock("../env.js", () => ({
 const { updateGlobalRoleGuarded, deactivateUserByIdGuarded } =
   await import("./users.js");
 
+function makeAdminUser(overrides: { isActive: boolean; username?: string }) {
+  return {
+    id: "u1",
+    username: "alice",
+    globalRole: "ADMIN",
+    ...overrides,
+  };
+}
+
 describe("updateGlobalRoleGuarded", () => {
   beforeEach(() => {
     txUserFindUnique.mockReset();
@@ -41,12 +50,9 @@ describe("updateGlobalRoleGuarded", () => {
 
   it("blocks changing the designated superadmin's role, before even checking the active-admin count", async () => {
     superAdminUsername = "root";
-    txUserFindUnique.mockResolvedValue({
-      id: "u1",
-      username: "root",
-      globalRole: "ADMIN",
-      isActive: true,
-    });
+    txUserFindUnique.mockResolvedValue(
+      makeAdminUser({ isActive: true, username: "root" }),
+    );
 
     const result = await updateGlobalRoleGuarded("u1", "USER");
 
@@ -59,12 +65,7 @@ describe("updateGlobalRoleGuarded", () => {
   });
 
   it("blocks demoting the last active admin", async () => {
-    txUserFindUnique.mockResolvedValue({
-      id: "u1",
-      username: "alice",
-      globalRole: "ADMIN",
-      isActive: true,
-    });
+    txUserFindUnique.mockResolvedValue(makeAdminUser({ isActive: true }));
     txQueryRaw.mockResolvedValue([{ id: "u1" }]);
 
     const result = await updateGlobalRoleGuarded("u1", "USER");
@@ -78,12 +79,7 @@ describe("updateGlobalRoleGuarded", () => {
   });
 
   it("allows demoting an admin when another active admin remains", async () => {
-    txUserFindUnique.mockResolvedValue({
-      id: "u1",
-      username: "alice",
-      globalRole: "ADMIN",
-      isActive: true,
-    });
+    txUserFindUnique.mockResolvedValue(makeAdminUser({ isActive: true }));
     txQueryRaw.mockResolvedValue([{ id: "u1" }, { id: "u2" }]);
     const updated = { id: "u1", globalRole: "USER" };
     txUserUpdate.mockResolvedValue(updated);
@@ -110,12 +106,7 @@ describe("updateGlobalRoleGuarded", () => {
   });
 
   it("doesn't block demoting an already-inactive admin (they don't count toward the live total)", async () => {
-    txUserFindUnique.mockResolvedValue({
-      id: "u1",
-      username: "alice",
-      globalRole: "ADMIN",
-      isActive: false,
-    });
+    txUserFindUnique.mockResolvedValue(makeAdminUser({ isActive: false }));
     const updated = { id: "u1", globalRole: "USER" };
     txUserUpdate.mockResolvedValue(updated);
 
@@ -135,12 +126,7 @@ describe("deactivateUserByIdGuarded", () => {
   });
 
   it("blocks deactivating the last active admin", async () => {
-    txUserFindUnique.mockResolvedValue({
-      id: "u1",
-      username: "alice",
-      globalRole: "ADMIN",
-      isActive: true,
-    });
+    txUserFindUnique.mockResolvedValue(makeAdminUser({ isActive: true }));
     txQueryRaw.mockResolvedValue([{ id: "u1" }]);
 
     const result = await deactivateUserByIdGuarded("u1");
@@ -154,12 +140,9 @@ describe("deactivateUserByIdGuarded", () => {
 
   it("blocks deactivating the designated superadmin even with other admins active", async () => {
     superAdminUsername = "root";
-    txUserFindUnique.mockResolvedValue({
-      id: "u1",
-      username: "root",
-      globalRole: "ADMIN",
-      isActive: true,
-    });
+    txUserFindUnique.mockResolvedValue(
+      makeAdminUser({ isActive: true, username: "root" }),
+    );
 
     const result = await deactivateUserByIdGuarded("u1");
 

@@ -21,7 +21,11 @@ vi.mock("../../db/users.js", () => ({ findUserByUsername }));
 const { login } = await import("./login.js");
 
 const DUMMY_HASH = "dummy-hash";
-const context = { req: { ip: "1.1.1.1" } } as GraphQLContext;
+const fakeRes = { name: "fake-res" };
+const context = {
+  req: { ip: "1.1.1.1" },
+  res: fakeRes,
+} as unknown as GraphQLContext;
 
 describe("login", () => {
   beforeEach(() => {
