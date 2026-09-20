@@ -6,10 +6,10 @@ import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import { parseCookie } from "cookie";
-import { ApolloServer } from "@apollo/server";
+import { ApolloServer, type ApolloServerPlugin } from "@apollo/server";
 import { ApolloServerPluginDrainHttpServer } from "@apollo/server/plugin/drainHttpServer";
 import { expressMiddleware } from "@as-integrations/express5";
-import depthLimit from "graphql-depth-limit";
+import { ApolloArmor } from "@escape.tech/graphql-armor";
 import { WebSocketServer } from "ws";
 import { registerWsHandlers } from "./ws/handlers.js";
 import { RoomRegistry } from "./ws/roomRegistry.js";
@@ -31,6 +31,11 @@ const PORT = Number(process.env.PORT ?? 8080);
 const MAX_WS_PAYLOAD_BYTES = 16 * 1024;
 const SHUTDOWN_GRACE_MS = 3000;
 const MAX_QUERY_DEPTH = 10;
+
+const armor = new ApolloArmor({ maxDepth: { n: MAX_QUERY_DEPTH } });
+const armorProtection = armor.protect();
+const armorPlugins =
+  armorProtection.plugins as ApolloServerPlugin<GraphQLContext>[];
 
 let cachedCorsOrigin: string | undefined;
 function getCorsOrigin(): string {
@@ -99,8 +104,10 @@ const apollo = new ApolloServer<GraphQLContext>({
   typeDefs,
   resolvers,
   introspection: isDevelopment(),
-  validationRules: [depthLimit(MAX_QUERY_DEPTH)],
-  plugins: [ApolloServerPluginDrainHttpServer({ httpServer })],
+  validationRules: armorProtection.validationRules,
+  plugins: [ApolloServerPluginDrainHttpServer({ httpServer }), ...armorPlugins],
+  allowBatchedHttpRequests: false,
+  includeStacktraceInErrorResponses: isDevelopment(),
   // Apollo's own signal handlers re-send the signal and ran shutdown() twice;
   // ours below also drains the WS clients Apollo doesn't know about
   stopOnTerminationSignals: false,

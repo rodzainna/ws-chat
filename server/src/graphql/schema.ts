@@ -32,8 +32,16 @@ export const typeDefs = `#graphql
     MEMBER
   }
 
+  type RoomMemberUser {
+    id: ID!
+    username: String!
+    globalRole: GlobalRole!
+    isActive: Boolean!
+    createdAt: DateTime!
+  }
+
   type RoomMember {
-    user: User!
+    user: RoomMemberUser!
     role: RoomRole!
     isOnline: Boolean!
   }

@@ -18,6 +18,7 @@
   "dependencies": {
     "@apollo/server": "^5.5.1",
     "@as-integrations/express5": "^1.1.2",
+    "@escape.tech/graphql-armor": "^3.2.0",
     "@prisma/adapter-pg": "^7.10.0",
     "@prisma/client": "^7.10.0",
     "bcrypt": "^6.0.0",
@@ -27,7 +28,6 @@
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "graphql": "^16.14.2",
-    "graphql-depth-limit": "^1.1.0",
     "graphql-scalars": "^2.0.0",
     "jose": "^6.2.12",
     "ms": "^2.1.3",
