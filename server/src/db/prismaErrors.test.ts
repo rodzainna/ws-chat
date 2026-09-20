@@ -38,19 +38,16 @@ describe("isUniqueConstraintViolation", () => {
 });
 
 describe("getViolatedUniqueField", () => {
-  it("identifies a username constraint from the driver adapter's index name", () => {
-    expect(getViolatedUniqueField(makeP2002("users_username_key"))).toBe(
-      "username",
-    );
-  });
-
-  it("identifies an email constraint", () => {
-    expect(getViolatedUniqueField(makeP2002("users_email_key"))).toBe("email");
-  });
-
-  it("identifies a room name constraint", () => {
-    expect(getViolatedUniqueField(makeP2002("rooms_name_key"))).toBe("name");
-  });
+  it.each([
+    ["users_username_key", "username"],
+    ["users_email_key", "email"],
+    ["rooms_name_key", "name"],
+  ])(
+    "identifies %s as the %s constraint from the driver adapter's index name",
+    (index, field) => {
+      expect(getViolatedUniqueField(makeP2002(index))).toBe(field);
+    },
+  );
 
   it("returns null for an unrecognized constraint index", () => {
     expect(getViolatedUniqueField(makeP2002("some_other_key"))).toBeNull();
