@@ -89,6 +89,15 @@ export async function registerUser(
   };
 }
 
+export function registerUsers(
+  baseUrl: string,
+  usernames: string[],
+): Promise<TestUser[]> {
+  return Promise.all(
+    usernames.map((username) => registerUser(baseUrl, username)),
+  );
+}
+
 const CREATE_ROOM_MUTATION = `
   mutation CreateRoom($input: CreateRoomInput!) {
     createRoom(input: $input) {
@@ -270,7 +279,7 @@ export function connectSocket(
             };
             poll();
           }),
-        assertNoneWithin: async (predicate, timeoutMs = 500) => {
+        assertNoneWithin: async (predicate, timeoutMs = 200) => {
           await new Promise((res) => setTimeout(res, timeoutMs));
           const match = received.find((m) => !consumed.has(m) && predicate(m));
           if (match) {
@@ -284,4 +293,12 @@ export function connectSocket(
     });
     socket.on("error", reject);
   });
+}
+
+export async function joinRoomOverSocket(
+  socket: TestSocket,
+  roomId: string,
+): Promise<void> {
+  socket.send({ type: "join", roomId });
+  await socket.waitFor((m) => m.type === "joined" && m.roomId === roomId);
 }

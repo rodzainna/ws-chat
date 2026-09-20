@@ -1,39 +1,28 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
-import { startTestServer, type TestServer } from "./testServer.js";
-import { truncateAllTables } from "./testDb.js";
+import { describe, it, expect } from "vitest";
+import { setupIntegrationTest } from "./fixtures.js";
 import {
-  registerUser,
+  registerUsers,
   createRoom,
   addRoomMember,
   connectSocket,
+  joinRoomOverSocket,
 } from "./testClient.js";
 
 describe("presence", () => {
-  let server: TestServer;
-
-  beforeAll(async () => {
-    server = await startTestServer();
-  });
-
-  afterAll(async () => {
-    await server.stop();
-  });
-
-  beforeEach(async () => {
-    await truncateAllTables();
-  });
+  const ctx = setupIntegrationTest();
 
   it("notifies a room's other members when someone comes online, room-wide not just in a joined room", async () => {
-    const alice = await registerUser(server.baseUrl, "alice");
-    const bob = await registerUser(server.baseUrl, "bob");
-    const room = await createRoom(server.baseUrl, alice, "general");
-    await addRoomMember(server.baseUrl, alice, room.id, "bob");
+    const [alice, bob] = await registerUsers(ctx.server.baseUrl, [
+      "alice",
+      "bob",
+    ]);
+    const room = await createRoom(ctx.server.baseUrl, alice, "general");
+    await addRoomMember(ctx.server.baseUrl, alice, room.id, "bob");
 
-    const aliceSocket = await connectSocket(server.wsUrl, alice.cookies);
-    aliceSocket.send({ type: "join", roomId: room.id });
-    await aliceSocket.waitFor((m) => m.type === "joined");
+    const aliceSocket = await connectSocket(ctx.server.wsUrl, alice.cookies);
+    await joinRoomOverSocket(aliceSocket, room.id);
 
-    const bobSocket = await connectSocket(server.wsUrl, bob.cookies);
+    const bobSocket = await connectSocket(ctx.server.wsUrl, bob.cookies);
 
     const presenceEvent = await aliceSocket.waitFor(
       (m) => m.type === "presence_changed" && m.userId === bob.id,
@@ -49,16 +38,17 @@ describe("presence", () => {
   });
 
   it("notifies a room's other members when someone goes offline", async () => {
-    const alice = await registerUser(server.baseUrl, "alice");
-    const bob = await registerUser(server.baseUrl, "bob");
-    const room = await createRoom(server.baseUrl, alice, "general");
-    await addRoomMember(server.baseUrl, alice, room.id, "bob");
+    const [alice, bob] = await registerUsers(ctx.server.baseUrl, [
+      "alice",
+      "bob",
+    ]);
+    const room = await createRoom(ctx.server.baseUrl, alice, "general");
+    await addRoomMember(ctx.server.baseUrl, alice, room.id, "bob");
 
-    const aliceSocket = await connectSocket(server.wsUrl, alice.cookies);
-    aliceSocket.send({ type: "join", roomId: room.id });
-    await aliceSocket.waitFor((m) => m.type === "joined");
+    const aliceSocket = await connectSocket(ctx.server.wsUrl, alice.cookies);
+    await joinRoomOverSocket(aliceSocket, room.id);
 
-    const bobSocket = await connectSocket(server.wsUrl, bob.cookies);
+    const bobSocket = await connectSocket(ctx.server.wsUrl, bob.cookies);
     await aliceSocket.waitFor(
       (m) =>
         m.type === "presence_changed" &&
@@ -84,23 +74,24 @@ describe("presence", () => {
   });
 
   it("doesn't report someone offline while they still have another tab/device connected", async () => {
-    const alice = await registerUser(server.baseUrl, "alice");
-    const bob = await registerUser(server.baseUrl, "bob");
-    const room = await createRoom(server.baseUrl, alice, "general");
-    await addRoomMember(server.baseUrl, alice, room.id, "bob");
+    const [alice, bob] = await registerUsers(ctx.server.baseUrl, [
+      "alice",
+      "bob",
+    ]);
+    const room = await createRoom(ctx.server.baseUrl, alice, "general");
+    await addRoomMember(ctx.server.baseUrl, alice, room.id, "bob");
 
-    const aliceSocket = await connectSocket(server.wsUrl, alice.cookies);
-    aliceSocket.send({ type: "join", roomId: room.id });
-    await aliceSocket.waitFor((m) => m.type === "joined");
+    const aliceSocket = await connectSocket(ctx.server.wsUrl, alice.cookies);
+    await joinRoomOverSocket(aliceSocket, room.id);
 
-    const bobTabOne = await connectSocket(server.wsUrl, bob.cookies);
+    const bobTabOne = await connectSocket(ctx.server.wsUrl, bob.cookies);
     await aliceSocket.waitFor(
       (m) =>
         m.type === "presence_changed" &&
         m.userId === bob.id &&
         m.online === true,
     );
-    const bobTabTwo = await connectSocket(server.wsUrl, bob.cookies);
+    const bobTabTwo = await connectSocket(ctx.server.wsUrl, bob.cookies);
 
     bobTabOne.close();
     await aliceSocket.assertNoneWithin(

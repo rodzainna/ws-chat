@@ -1,11 +1,13 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
-import { startTestServer, type TestServer } from "./testServer.js";
-import { truncateAllTables } from "./testDb.js";
+import { describe, it, expect } from "vitest";
 import {
-  registerUser,
+  setupIntegrationTest,
+  setUpRoomWithTwoJoinedMembers,
+} from "./fixtures.js";
+import {
+  registerUsers,
   createRoom,
-  addRoomMember,
   connectSocket,
+  joinRoomOverSocket,
   type TestSocket,
 } from "./testClient.js";
 
@@ -22,32 +24,11 @@ async function sendAndAwaitCreated(
 }
 
 describe("message edit/delete and rate limiting", () => {
-  let server: TestServer;
-
-  beforeAll(async () => {
-    server = await startTestServer();
-  });
-
-  afterAll(async () => {
-    await server.stop();
-  });
-
-  beforeEach(async () => {
-    await truncateAllTables();
-  });
+  const ctx = setupIntegrationTest();
 
   it("broadcasts an edit to every joined member, including the editor", async () => {
-    const alice = await registerUser(server.baseUrl, "alice");
-    const bob = await registerUser(server.baseUrl, "bob");
-    const room = await createRoom(server.baseUrl, alice, "general");
-    await addRoomMember(server.baseUrl, alice, room.id, "bob");
-
-    const aliceSocket = await connectSocket(server.wsUrl, alice.cookies);
-    const bobSocket = await connectSocket(server.wsUrl, bob.cookies);
-    for (const socket of [aliceSocket, bobSocket]) {
-      socket.send({ type: "join", roomId: room.id });
-      await socket.waitFor((m) => m.type === "joined");
-    }
+    const { aliceSocket, bobSocket, room } =
+      await setUpRoomWithTwoJoinedMembers(ctx.server, "general");
 
     const created = await sendAndAwaitCreated(aliceSocket, room.id, "typo");
     await bobSocket.waitFor((m) => m.type === "message_created");
@@ -66,23 +47,21 @@ describe("message edit/delete and rate limiting", () => {
       messageId: created.id,
       content: "fixed",
     });
+    const editedForAlice = await aliceSocket.waitFor(
+      (m) => m.type === "message_edited",
+    );
+    expect(editedForAlice).toMatchObject({
+      messageId: created.id,
+      content: "fixed",
+    });
 
     aliceSocket.close();
     bobSocket.close();
   });
 
   it("rejects editing someone else's message", async () => {
-    const alice = await registerUser(server.baseUrl, "alice");
-    const bob = await registerUser(server.baseUrl, "bob");
-    const room = await createRoom(server.baseUrl, alice, "general");
-    await addRoomMember(server.baseUrl, alice, room.id, "bob");
-
-    const aliceSocket = await connectSocket(server.wsUrl, alice.cookies);
-    const bobSocket = await connectSocket(server.wsUrl, bob.cookies);
-    for (const socket of [aliceSocket, bobSocket]) {
-      socket.send({ type: "join", roomId: room.id });
-      await socket.waitFor((m) => m.type === "joined");
-    }
+    const { aliceSocket, bobSocket, room } =
+      await setUpRoomWithTwoJoinedMembers(ctx.server, "general");
 
     const created = await sendAndAwaitCreated(
       aliceSocket,
@@ -106,17 +85,8 @@ describe("message edit/delete and rate limiting", () => {
   });
 
   it("broadcasts a delete to every joined member", async () => {
-    const alice = await registerUser(server.baseUrl, "alice");
-    const bob = await registerUser(server.baseUrl, "bob");
-    const room = await createRoom(server.baseUrl, alice, "general");
-    await addRoomMember(server.baseUrl, alice, room.id, "bob");
-
-    const aliceSocket = await connectSocket(server.wsUrl, alice.cookies);
-    const bobSocket = await connectSocket(server.wsUrl, bob.cookies);
-    for (const socket of [aliceSocket, bobSocket]) {
-      socket.send({ type: "join", roomId: room.id });
-      await socket.waitFor((m) => m.type === "joined");
-    }
+    const { aliceSocket, bobSocket, room } =
+      await setUpRoomWithTwoJoinedMembers(ctx.server, "general");
 
     const created = await sendAndAwaitCreated(
       aliceSocket,
@@ -144,17 +114,8 @@ describe("message edit/delete and rate limiting", () => {
   });
 
   it("rejects deleting someone else's message", async () => {
-    const alice = await registerUser(server.baseUrl, "alice");
-    const bob = await registerUser(server.baseUrl, "bob");
-    const room = await createRoom(server.baseUrl, alice, "general");
-    await addRoomMember(server.baseUrl, alice, room.id, "bob");
-
-    const aliceSocket = await connectSocket(server.wsUrl, alice.cookies);
-    const bobSocket = await connectSocket(server.wsUrl, bob.cookies);
-    for (const socket of [aliceSocket, bobSocket]) {
-      socket.send({ type: "join", roomId: room.id });
-      await socket.waitFor((m) => m.type === "joined");
-    }
+    const { aliceSocket, bobSocket, room } =
+      await setUpRoomWithTwoJoinedMembers(ctx.server, "general");
 
     const created = await sendAndAwaitCreated(
       aliceSocket,
@@ -177,11 +138,10 @@ describe("message edit/delete and rate limiting", () => {
   });
 
   it("rate-limits a burst of sends past the configured capacity", async () => {
-    const alice = await registerUser(server.baseUrl, "alice");
-    const room = await createRoom(server.baseUrl, alice, "general");
-    const socket = await connectSocket(server.wsUrl, alice.cookies);
-    socket.send({ type: "join", roomId: room.id });
-    await socket.waitFor((m) => m.type === "joined");
+    const [alice] = await registerUsers(ctx.server.baseUrl, ["alice"]);
+    const room = await createRoom(ctx.server.baseUrl, alice, "general");
+    const socket = await connectSocket(ctx.server.wsUrl, alice.cookies);
+    await joinRoomOverSocket(socket, room.id);
 
     for (let i = 0; i < MESSAGE_RATE_LIMIT; i++) {
       socket.send({ type: "send", roomId: room.id, content: `msg ${i}` });

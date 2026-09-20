@@ -105,7 +105,10 @@ export async function startTestServer(): Promise<TestServer> {
       child.kill("SIGTERM");
       await new Promise<void>((resolve) => {
         child.once("exit", () => resolve());
-        setTimeout(resolve, 5000);
+        setTimeout(() => {
+          if (!exited) child.kill("SIGKILL");
+          resolve();
+        }, 5000);
       });
     },
   };

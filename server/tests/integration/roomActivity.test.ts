@@ -1,39 +1,31 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
-import { startTestServer, type TestServer } from "./testServer.js";
-import { truncateAllTables } from "./testDb.js";
+import { describe, it, expect } from "vitest";
 import {
-  registerUser,
+  setupIntegrationTest,
+  setUpRoomWithTwoJoinedMembers,
+} from "./fixtures.js";
+import {
+  registerUsers,
   createRoom,
   addRoomMember,
   connectSocket,
+  joinRoomOverSocket,
 } from "./testClient.js";
 
 describe("room_activity (unread/mention signal for rooms you're not viewing)", () => {
-  let server: TestServer;
-
-  beforeAll(async () => {
-    server = await startTestServer();
-  });
-
-  afterAll(async () => {
-    await server.stop();
-  });
-
-  beforeEach(async () => {
-    await truncateAllTables();
-  });
+  const ctx = setupIntegrationTest();
 
   it("notifies a member whose socket is connected but not joined to the room", async () => {
-    const alice = await registerUser(server.baseUrl, "alice");
-    const bob = await registerUser(server.baseUrl, "bob");
-    const room = await createRoom(server.baseUrl, alice, "general");
-    await addRoomMember(server.baseUrl, alice, room.id, "bob");
+    const [alice, bob] = await registerUsers(ctx.server.baseUrl, [
+      "alice",
+      "bob",
+    ]);
+    const room = await createRoom(ctx.server.baseUrl, alice, "general");
+    await addRoomMember(ctx.server.baseUrl, alice, room.id, "bob");
 
-    const aliceSocket = await connectSocket(server.wsUrl, alice.cookies);
-    aliceSocket.send({ type: "join", roomId: room.id });
-    await aliceSocket.waitFor((m) => m.type === "joined");
+    const aliceSocket = await connectSocket(ctx.server.wsUrl, alice.cookies);
+    await joinRoomOverSocket(aliceSocket, room.id);
 
-    const bobSocket = await connectSocket(server.wsUrl, bob.cookies);
+    const bobSocket = await connectSocket(ctx.server.wsUrl, bob.cookies);
 
     aliceSocket.send({ type: "send", roomId: room.id, content: "hello" });
 
@@ -49,15 +41,16 @@ describe("room_activity (unread/mention signal for rooms you're not viewing)", (
   });
 
   it("flags mentionsYou when the message @mentions that member", async () => {
-    const alice = await registerUser(server.baseUrl, "alice");
-    const bob = await registerUser(server.baseUrl, "bob");
-    const room = await createRoom(server.baseUrl, alice, "general");
-    await addRoomMember(server.baseUrl, alice, room.id, "bob");
+    const [alice, bob] = await registerUsers(ctx.server.baseUrl, [
+      "alice",
+      "bob",
+    ]);
+    const room = await createRoom(ctx.server.baseUrl, alice, "general");
+    await addRoomMember(ctx.server.baseUrl, alice, room.id, "bob");
 
-    const aliceSocket = await connectSocket(server.wsUrl, alice.cookies);
-    aliceSocket.send({ type: "join", roomId: room.id });
-    await aliceSocket.waitFor((m) => m.type === "joined");
-    const bobSocket = await connectSocket(server.wsUrl, bob.cookies);
+    const aliceSocket = await connectSocket(ctx.server.wsUrl, alice.cookies);
+    await joinRoomOverSocket(aliceSocket, room.id);
+    const bobSocket = await connectSocket(ctx.server.wsUrl, bob.cookies);
 
     aliceSocket.send({ type: "send", roomId: room.id, content: "hey @bob" });
 
@@ -69,17 +62,8 @@ describe("room_activity (unread/mention signal for rooms you're not viewing)", (
   });
 
   it("doesn't notify a member who has this room open (they get message_created live instead)", async () => {
-    const alice = await registerUser(server.baseUrl, "alice");
-    const bob = await registerUser(server.baseUrl, "bob");
-    const room = await createRoom(server.baseUrl, alice, "general");
-    await addRoomMember(server.baseUrl, alice, room.id, "bob");
-
-    const aliceSocket = await connectSocket(server.wsUrl, alice.cookies);
-    const bobSocket = await connectSocket(server.wsUrl, bob.cookies);
-    for (const socket of [aliceSocket, bobSocket]) {
-      socket.send({ type: "join", roomId: room.id });
-      await socket.waitFor((m) => m.type === "joined");
-    }
+    const { aliceSocket, bobSocket, room } =
+      await setUpRoomWithTwoJoinedMembers(ctx.server, "general");
 
     aliceSocket.send({ type: "send", roomId: room.id, content: "hello" });
     await bobSocket.waitFor((m) => m.type === "message_created");
@@ -91,13 +75,12 @@ describe("room_activity (unread/mention signal for rooms you're not viewing)", (
   });
 
   it("doesn't notify the sender about their own message", async () => {
-    const alice = await registerUser(server.baseUrl, "alice");
-    const room = await createRoom(server.baseUrl, alice, "general");
+    const [alice] = await registerUsers(ctx.server.baseUrl, ["alice"]);
+    const room = await createRoom(ctx.server.baseUrl, alice, "general");
 
-    const aliceOtherTab = await connectSocket(server.wsUrl, alice.cookies);
-    const aliceSocket = await connectSocket(server.wsUrl, alice.cookies);
-    aliceSocket.send({ type: "join", roomId: room.id });
-    await aliceSocket.waitFor((m) => m.type === "joined");
+    const aliceOtherTab = await connectSocket(ctx.server.wsUrl, alice.cookies);
+    const aliceSocket = await connectSocket(ctx.server.wsUrl, alice.cookies);
+    await joinRoomOverSocket(aliceSocket, room.id);
 
     aliceSocket.send({ type: "send", roomId: room.id, content: "hello" });
     await aliceSocket.waitFor((m) => m.type === "message_created");

@@ -1,36 +1,23 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
-import { startTestServer, type TestServer } from "./testServer.js";
-import { truncateAllTables } from "./testDb.js";
+import { describe, it, expect } from "vitest";
+import { setupIntegrationTest } from "./fixtures.js";
 import { registerUser, connectSocket } from "./testClient.js";
 
 describe("WS connection auth", () => {
-  let server: TestServer;
-
-  beforeAll(async () => {
-    server = await startTestServer();
-  });
-
-  afterAll(async () => {
-    await server.stop();
-  });
-
-  beforeEach(async () => {
-    await truncateAllTables();
-  });
+  const ctx = setupIntegrationTest();
 
   it("accepts an upgrade carrying a valid access token cookie", async () => {
-    const alice = await registerUser(server.baseUrl, "alice");
-    const socket = await connectSocket(server.wsUrl, alice.cookies);
+    const alice = await registerUser(ctx.server.baseUrl, "alice");
+    const socket = await connectSocket(ctx.server.wsUrl, alice.cookies);
     socket.close();
   });
 
   it("rejects an upgrade with no cookie at all", async () => {
-    await expect(connectSocket(server.wsUrl, "")).rejects.toThrow();
+    await expect(connectSocket(ctx.server.wsUrl, "")).rejects.toThrow();
   });
 
   it("rejects an upgrade with a garbage access token", async () => {
     await expect(
-      connectSocket(server.wsUrl, "access_token=not-a-real-token"),
+      connectSocket(ctx.server.wsUrl, "access_token=not-a-real-token"),
     ).rejects.toThrow();
   });
 });

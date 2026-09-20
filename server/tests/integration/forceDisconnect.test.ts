@@ -1,36 +1,26 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
-import { startTestServer, type TestServer } from "./testServer.js";
-import { truncateAllTables, promoteToAdmin } from "./testDb.js";
+import { describe, it, expect } from "vitest";
+import { setupIntegrationTest } from "./fixtures.js";
+import { promoteToAdmin } from "./testDb.js";
 import {
-  registerUser,
+  registerUsers,
   deactivateUser,
   logout,
   connectSocket,
 } from "./testClient.js";
 
 describe("force-disconnect on deactivation and logout", () => {
-  let server: TestServer;
-
-  beforeAll(async () => {
-    server = await startTestServer();
-  });
-
-  afterAll(async () => {
-    await server.stop();
-  });
-
-  beforeEach(async () => {
-    await truncateAllTables();
-  });
+  const ctx = setupIntegrationTest();
 
   it("closes a deactivated user's live socket with a session_expired frame", async () => {
-    const admin = await registerUser(server.baseUrl, "admin");
+    const [admin, alice] = await registerUsers(ctx.server.baseUrl, [
+      "admin",
+      "alice",
+    ]);
     await promoteToAdmin(admin.id);
-    const alice = await registerUser(server.baseUrl, "alice");
 
-    const aliceSocket = await connectSocket(server.wsUrl, alice.cookies);
+    const aliceSocket = await connectSocket(ctx.server.wsUrl, alice.cookies);
 
-    await deactivateUser(server.baseUrl, admin, alice.id);
+    await deactivateUser(ctx.server.baseUrl, admin, alice.id);
 
     const expired = await aliceSocket.waitFor(
       (m) => m.type === "session_expired",
@@ -39,38 +29,42 @@ describe("force-disconnect on deactivation and logout", () => {
   });
 
   it("closes every open socket for a user across multiple tabs/devices on deactivation", async () => {
-    const admin = await registerUser(server.baseUrl, "admin");
+    const [admin, alice] = await registerUsers(ctx.server.baseUrl, [
+      "admin",
+      "alice",
+    ]);
     await promoteToAdmin(admin.id);
-    const alice = await registerUser(server.baseUrl, "alice");
 
-    const tabOne = await connectSocket(server.wsUrl, alice.cookies);
-    const tabTwo = await connectSocket(server.wsUrl, alice.cookies);
+    const tabOne = await connectSocket(ctx.server.wsUrl, alice.cookies);
+    const tabTwo = await connectSocket(ctx.server.wsUrl, alice.cookies);
 
-    await deactivateUser(server.baseUrl, admin, alice.id);
+    await deactivateUser(ctx.server.baseUrl, admin, alice.id);
 
     await tabOne.waitFor((m) => m.type === "session_expired");
     await tabTwo.waitFor((m) => m.type === "session_expired");
   });
 
   it("closes a live socket with a session_expired frame on logout", async () => {
-    const alice = await registerUser(server.baseUrl, "alice");
-    const socket = await connectSocket(server.wsUrl, alice.cookies);
+    const [alice] = await registerUsers(ctx.server.baseUrl, ["alice"]);
+    const socket = await connectSocket(ctx.server.wsUrl, alice.cookies);
 
-    await logout(server.baseUrl, alice);
+    await logout(ctx.server.baseUrl, alice);
 
     const expired = await socket.waitFor((m) => m.type === "session_expired");
     expect(expired).toEqual({ type: "session_expired", reason: "logged_out" });
   });
 
   it("doesn't disconnect an unrelated user's socket when someone else is deactivated", async () => {
-    const admin = await registerUser(server.baseUrl, "admin");
+    const [admin, alice, bob] = await registerUsers(ctx.server.baseUrl, [
+      "admin",
+      "alice",
+      "bob",
+    ]);
     await promoteToAdmin(admin.id);
-    const alice = await registerUser(server.baseUrl, "alice");
-    const bob = await registerUser(server.baseUrl, "bob");
 
-    const bobSocket = await connectSocket(server.wsUrl, bob.cookies);
+    const bobSocket = await connectSocket(ctx.server.wsUrl, bob.cookies);
 
-    await deactivateUser(server.baseUrl, admin, alice.id);
+    await deactivateUser(ctx.server.baseUrl, admin, alice.id);
 
     await bobSocket.assertNoneWithin((m) => m.type === "session_expired");
 
