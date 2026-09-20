@@ -3,11 +3,7 @@ import { Navigate, Outlet, useNavigate } from "react-router";
 import { useAuth } from "./useAuth";
 import { ChatConnectionProvider } from "@/ws/ChatConnectionProvider";
 import { useChatConnection } from "@/ws/useChatConnection";
-import {
-  SESSION_EXPIRED_MESSAGES,
-  DEFAULT_SESSION_EXPIRED_MESSAGE,
-  setPendingSessionExpiredMessage,
-} from "@/ws/sessionExpiredMessages";
+import { expireSession } from "@/ws/sessionExpiredMessages";
 
 function GlobalSessionExpiredHandler() {
   const { subscribe } = useChatConnection();
@@ -17,12 +13,7 @@ function GlobalSessionExpiredHandler() {
   useEffect(() => {
     return subscribe((event) => {
       if (event.type === "session_expired") {
-        setPendingSessionExpiredMessage(
-          SESSION_EXPIRED_MESSAGES[event.reason] ??
-            DEFAULT_SESSION_EXPIRED_MESSAGE,
-        );
-        clearUser();
-        void navigate("/login", { replace: true });
+        expireSession(navigate, clearUser, event.reason);
       }
     });
   }, [subscribe, clearUser, navigate]);
