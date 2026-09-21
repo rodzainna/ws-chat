@@ -19,6 +19,12 @@ export function getPositiveIntEnv(name: string, defaultValue: number): number {
   return parsed;
 }
 
+let cachedMaxRooms: number | undefined;
+export function getMaxRooms(): number {
+  cachedMaxRooms ??= getPositiveIntEnv("MAX_ROOMS", 50);
+  return cachedMaxRooms;
+}
+
 let cachedSuperAdminUsername: string | null | undefined;
 export function getSuperAdminUsername(): string | null {
   if (cachedSuperAdminUsername === undefined) {

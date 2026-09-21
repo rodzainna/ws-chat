@@ -1,8 +1,9 @@
 import { GraphQLError } from "graphql";
 import { requireActiveUser } from "../currentUser.js";
 import { validateRoomName } from "../../rooms/validation.js";
-import { createRoomWithOwner } from "../../db/rooms.js";
+import { countRooms, createRoomWithOwner } from "../../db/rooms.js";
 import { tryConsumeRoomCreationToken } from "../../rooms/rateLimit.js";
+import { getMaxRooms } from "../../env.js";
 import {
   getViolatedUniqueField,
   isUniqueConstraintViolation,
@@ -18,6 +19,11 @@ const RATE_LIMITED: GraphQLUserError = {
   message: "Too many rooms created recently. Please try again later.",
 };
 
+const ROOM_CAP_REACHED: GraphQLUserError = {
+  field: [],
+  message: `Maximum number of rooms (${getMaxRooms()}) reached.`,
+};
+
 export async function createRoom(
   _parent: unknown,
   { input }: { input: CreateRoomInput },
@@ -29,6 +35,10 @@ export async function createRoom(
     throw new GraphQLError("Restricted users cannot create rooms", {
       extensions: { code: "FORBIDDEN" },
     });
+  }
+
+  if ((await countRooms()) >= getMaxRooms()) {
+    return { room: null, userErrors: [ROOM_CAP_REACHED] };
   }
 
   if (!tryConsumeRoomCreationToken(user.id)) {
