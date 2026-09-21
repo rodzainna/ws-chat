@@ -102,6 +102,21 @@ const DEACTIVATE_USER_MUTATION = gql`
   }
 `;
 
+const REACTIVATE_USER_MUTATION = gql`
+  mutation ReactivateUser($userId: ID!) {
+    reactivateUser(userId: $userId) {
+      user {
+        id
+        isActive
+      }
+      userErrors {
+        field
+        message
+      }
+    }
+  }
+`;
+
 const ROLES: GlobalRole[] = ["ADMIN", "USER", "RESTRICTED"];
 
 export function AdminUsersSection() {
@@ -141,6 +156,12 @@ export function AdminUsersSection() {
     },
     { userId: string }
   >(DEACTIVATE_USER_MUTATION);
+  const [reactivateUser] = useMutation<
+    {
+      reactivateUser: { user: AdminUser | null; userErrors: UserError[] };
+    },
+    { userId: string }
+  >(REACTIVATE_USER_MUTATION);
 
   const [pendingUserIds, setPendingUserIds] = useState<Set<string>>(new Set());
   const [rowErrors, setRowErrors] = useState<Record<string, string>>({});
@@ -238,6 +259,15 @@ export function AdminUsersSection() {
     );
   }
 
+  async function handleReactivate(userId: string) {
+    await runRowAction(
+      userId,
+      async () =>
+        (await reactivateUser({ variables: { userId } })).data?.reactivateUser,
+      "Could not reactivate",
+    );
+  }
+
   if (loading && users.length === 0) {
     return <p className="text-sm text-muted-foreground">Loading users…</p>;
   }
@@ -286,54 +316,72 @@ export function AdminUsersSection() {
                     ))}
                   </SelectContent>
                 </Select>
-                <AlertDialog
-                  open={confirmDeactivateId === u.id}
-                  onOpenChange={(open) =>
-                    setConfirmDeactivateId(open ? u.id : null)
-                  }
-                >
-                  <AlertDialogTrigger asChild>
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      disabled={!u.isActive || isPending}
-                    >
-                      Deactivate
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>
-                        Deactivate {u.username}?
-                      </AlertDialogTitle>
-                      <AlertDialogDescription>
-                        They'll be signed out and unable to log back in. There's
-                        no undo for this from the admin screen.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction
+                {u.isActive ? (
+                  <AlertDialog
+                    open={confirmDeactivateId === u.id}
+                    onOpenChange={(open) =>
+                      setConfirmDeactivateId(open ? u.id : null)
+                    }
+                  >
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        size="sm"
+                        variant="destructive"
                         disabled={isPending}
-                        onClick={(event) => {
-                          event.preventDefault();
-                          void handleDeactivate(u.id).then(() =>
-                            setConfirmDeactivateId(null),
-                          );
-                        }}
                       >
-                        {isPending ? (
-                          <>
-                            <Loader2Icon className="animate-spin" />
-                            Deactivating…
-                          </>
-                        ) : (
-                          "Deactivate"
-                        )}
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
+                        Deactivate
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>
+                          Deactivate {u.username}?
+                        </AlertDialogTitle>
+                        <AlertDialogDescription>
+                          They'll be signed out and unable to log back in until
+                          reactivated.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                          disabled={isPending}
+                          onClick={(event) => {
+                            event.preventDefault();
+                            void handleDeactivate(u.id).then(() =>
+                              setConfirmDeactivateId(null),
+                            );
+                          }}
+                        >
+                          {isPending ? (
+                            <>
+                              <Loader2Icon className="animate-spin" />
+                              Deactivating…
+                            </>
+                          ) : (
+                            "Deactivate"
+                          )}
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                ) : (
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    disabled={isPending}
+                    onClick={() => void handleReactivate(u.id)}
+                  >
+                    {isPending ? (
+                      <>
+                        <Loader2Icon className="animate-spin" />
+                        Reactivating…
+                      </>
+                    ) : (
+                      "Reactivate"
+                    )}
+                  </Button>
+                )}
               </div>
               {rowErrors[u.id] && (
                 <p className="text-xs text-destructive">{rowErrors[u.id]}</p>
