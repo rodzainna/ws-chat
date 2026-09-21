@@ -153,8 +153,12 @@ export function RoomPage() {
   useEffect(() => {
     if (!membersData) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setMembers(membersData.roomMembers);
-  }, [membersData]);
+    setMembers(
+      membersData.roomMembers.map((member) =>
+        member.user.id === user?.id ? { ...member, isOnline: true } : member,
+      ),
+    );
+  }, [membersData, user?.id]);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const [draft, setDraft] = useState("");
