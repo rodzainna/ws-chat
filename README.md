@@ -64,7 +64,7 @@ Messages live in Postgres (`messages`: `id`, `room_id`, `user_id`, `content`, `c
 
 **Why the message transport is split between WebSocket and GraphQL.** Sending, editing, and deleting your own messages happen over WebSocket frames — they're author-owned, real-time by nature, and it's also where the message rate limiter lives. Fetching history, creating rooms, and admin actions happen over GraphQL — naturally request/response, and history pagination specifically benefits from a typed schema. An admin removing _someone else's_ message is a separate GraphQL mutation from a user's own WebSocket-based delete: it's moderation, not the author exercising ownership, and it needs to reach messages the moderator's own socket never sent. Full detail in [docs/api.md](docs/api.md) and [docs/websocket-protocol.md](docs/websocket-protocol.md).
 
-**How previous messages are fetched.** `messages(roomId, first, after)` returns Relay-style cursor pagination, capped server-side so a single request can't pull unbounded history. Cursor over offset specifically because messages are actively being inserted while someone might be paging back through history — an offset-based page can skip or repeat rows when new ones land between two requests; a cursor anchored to a specific row's position can't.
+**How previous messages are fetched.** `messages(roomId, last, before)` returns Relay-style cursor pagination — backward-only (newest page first, then scrolling up for older pages via `before`), since the chat view never needs a forward walk from the oldest message. Capped server-side so a single request can't pull unbounded history. Cursor over offset specifically because messages are actively being inserted while someone might be paging back through history — an offset-based page can skip or repeat rows when new ones land between two requests; a cursor anchored to a specific row's position can't.
 
 ## Architecture
 
@@ -135,8 +135,8 @@ CI runs all of the above (plus a production build) on every push and pull reques
 ## Known limitations
 
 - No sound or browser notification when a new message arrives in a room you aren't viewing — unread/mention badges are visual only
-- No file/image uploads — only auto-detected image _links_ are displayed inline, and only for a fixed set of extensions
-- No true end-to-end message encryption — server-side content access is required for @mention parsing, so TLS + at-rest encryption is the deliberate tradeoff here
+- No file/image uploads, and no inline preview of image links either — messages are plain text with @mention highlighting only
+- No true end-to-end message encryption — server-side content access is required for @mention parsing. TLS in transit and disk encryption at rest are whatever the hosting platform (Render/Supabase) provides by default, not something this app configures itself
 - Single-instance only: rate limiting and WebSocket room state are in-memory; a multi-instance deployment would need Redis pub/sub for both
 - No read receipts, typing indicators, password reset, or email verification
 - No auto-reassignment of room ownership if a room's owner is deactivated
