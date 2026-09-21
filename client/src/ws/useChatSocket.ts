@@ -49,6 +49,14 @@ export function useChatSocket(roomId: string, handlers: ChatSocketHandlers) {
             handlers.onError?.("ROOM_DELETED", "This room has been deleted.");
           }
           return;
+        case "removed_from_room":
+          if (event.roomId === roomId) {
+            handlers.onError?.(
+              "REMOVED_FROM_ROOM",
+              "You've been removed from this room.",
+            );
+          }
+          return;
         case "presence_changed":
           handlers.onPresenceChanged?.(event.userId, event.online);
           return;

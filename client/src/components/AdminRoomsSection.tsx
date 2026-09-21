@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { gql, useApolloClient, useMutation } from "@apollo/client";
-import { Loader2Icon, LockIcon } from "lucide-react";
+import { Loader2Icon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { RoomLabel } from "@/components/RoomLabel";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -157,12 +158,7 @@ export function AdminRoomsSection() {
             <div key={r.id} className="flex flex-col gap-2 p-3">
               <div className="flex items-center gap-2">
                 <span className="min-w-0 flex-1 truncate font-medium">
-                  {r.isPrivate ? (
-                    <LockIcon className="inline size-3 align-middle" />
-                  ) : (
-                    "#"
-                  )}{" "}
-                  {r.name}
+                  <RoomLabel isPrivate={r.isPrivate} name={r.name} />
                 </span>
                 {r.isPrivate && (
                   <Badge variant="secondary" className="shrink-0">

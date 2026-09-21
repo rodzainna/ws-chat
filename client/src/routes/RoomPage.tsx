@@ -2,8 +2,9 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { useParams } from "react-router";
 import { gql, useMutation, useQuery } from "@apollo/client";
 import { toast } from "sonner";
-import { Loader2Icon, LockIcon } from "lucide-react";
+import { Loader2Icon } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { RoomLabel } from "@/components/RoomLabel";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
@@ -195,7 +196,9 @@ export function RoomPage() {
   const [addMemberOpen, setAddMemberOpen] = useState(false);
   const [addMemberUsername, setAddMemberUsername] = useState("");
   const [addMemberError, setAddMemberError] = useState<string | null>(null);
-  const [removingMemberId, setRemovingMemberId] = useState<string | null>(null);
+  const [removingMemberIds, setRemovingMemberIds] = useState<Set<string>>(
+    new Set(),
+  );
   const [removeMemberError, setRemoveMemberError] = useState<string | null>(
     null,
   );
@@ -409,7 +412,8 @@ export function RoomPage() {
   const isRoomOwner = members.some(
     (member) => member.user.id === user?.id && member.role === "OWNER",
   );
-  const canAddMembers = isRoomOwner || user?.globalRole === "ADMIN";
+  const canAddMembers =
+    !!membersData && (isRoomOwner || user?.globalRole === "ADMIN");
 
   async function handleAddMember(event: FormEvent) {
     event.preventDefault();
@@ -433,19 +437,30 @@ export function RoomPage() {
   async function handleRemoveMember(memberUserId: string) {
     if (!roomId) return;
     setRemoveMemberError(null);
-    setRemovingMemberId(memberUserId);
-    const result = await removeRoomMember({
-      variables: { roomId, userId: memberUserId },
-    });
-    const payload = result.data?.removeRoomMember;
-    setRemovingMemberId(null);
-    if (!payload?.room) {
+    setRemovingMemberIds((prev) => new Set(prev).add(memberUserId));
+    try {
+      const result = await removeRoomMember({
+        variables: { roomId, userId: memberUserId },
+      });
+      const payload = result.data?.removeRoomMember;
+      if (!payload?.room) {
+        setRemoveMemberError(
+          payload?.userErrors[0]?.message ?? "Could not remove member",
+        );
+        return;
+      }
+      await refetchMembers();
+    } catch {
       setRemoveMemberError(
-        payload?.userErrors[0]?.message ?? "Could not remove member",
+        "Could not remove member — you may no longer have permission",
       );
-      return;
+    } finally {
+      setRemovingMemberIds((prev) => {
+        const next = new Set(prev);
+        next.delete(memberUserId);
+        return next;
+      });
     }
-    await refetchMembers();
   }
 
   if (!roomId) return null;
@@ -454,12 +469,10 @@ export function RoomPage() {
     <div className="flex h-full flex-1 flex-col overflow-hidden">
       <div className="flex h-12 items-center gap-2 border-b px-4">
         <span className="min-w-0 flex-1 truncate font-medium">
-          {room?.isPrivate ? (
-            <LockIcon className="inline size-3 align-middle" />
-          ) : (
-            "#"
-          )}{" "}
-          {room?.name ?? "…"}
+          <RoomLabel
+            isPrivate={room?.isPrivate ?? false}
+            name={room?.name ?? "…"}
+          />
         </span>
         {room?.isPrivate && (
           <Badge variant="secondary" className="shrink-0">
@@ -478,12 +491,11 @@ export function RoomPage() {
           <DialogContent>
             <DialogHeader>
               <DialogTitle>
-                {room?.isPrivate ? (
-                  <LockIcon className="inline size-3 align-middle" />
-                ) : (
-                  "#"
-                )}{" "}
-                {room?.name ?? "…"} members
+                <RoomLabel
+                  isPrivate={room?.isPrivate ?? false}
+                  name={room?.name ?? "…"}
+                />{" "}
+                members
               </DialogTitle>
             </DialogHeader>
             <ul className="space-y-2">
@@ -508,10 +520,10 @@ export function RoomPage() {
                       variant="ghost"
                       size="sm"
                       className="ml-auto h-auto px-2 py-0.5 text-xs text-destructive"
-                      disabled={removingMemberId === member.user.id}
+                      disabled={removingMemberIds.has(member.user.id)}
                       onClick={() => void handleRemoveMember(member.user.id)}
                     >
-                      {removingMemberId === member.user.id
+                      {removingMemberIds.has(member.user.id)
                         ? "Removing…"
                         : "Remove"}
                     </Button>
