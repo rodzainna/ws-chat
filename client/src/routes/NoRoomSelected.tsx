@@ -14,7 +14,7 @@ export function NoRoomSelected() {
   }
 
   return (
-    <div className="flex flex-1 items-center justify-center text-muted-foreground">
+    <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
       {loading
         ? "Loading…"
         : error

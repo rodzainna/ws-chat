@@ -404,10 +404,10 @@ export function RoomPage() {
       <ScrollArea className="flex-1 px-4">
         <div className="mx-auto max-w-full space-y-3 py-4">
           {loading && !historyLoaded && (
-            <p className="text-muted-foreground">Loading messages…</p>
+            <p className="text-sm text-muted-foreground">Loading messages…</p>
           )}
           {orderedMessages.length === 0 && historyLoaded && (
-            <p className="text-muted-foreground">
+            <p className="text-sm text-muted-foreground">
               No messages yet — say hello.
             </p>
           )}
