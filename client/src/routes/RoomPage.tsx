@@ -356,13 +356,22 @@ export function RoomPage() {
 
   return (
     <div className="flex h-full flex-1 flex-col overflow-hidden">
-      <div className="flex items-center gap-2 border-b px-4 py-3">
-        <span className="font-medium"># {room?.name ?? "…"}</span>
-        {room?.isPrivate && <Badge variant="secondary">Private</Badge>}
+      <div className="flex h-12 items-center gap-2 border-b px-4">
+        <span className="min-w-0 flex-1 truncate font-medium">
+          # {room?.name ?? "…"}
+        </span>
+        {room?.isPrivate && (
+          <Badge variant="secondary" className="shrink-0">
+            Private
+          </Badge>
+        )}
         <Dialog>
           <DialogTrigger asChild>
-            <Button variant="ghost" size="sm" className="ml-auto">
-              {members.length} member{members.length === 1 ? "" : "s"}
+            <Button variant="ghost" size="sm" className="shrink-0">
+              {members.length}{" "}
+              <span className="hidden sm:inline">
+                member{members.length === 1 ? "" : "s"}
+              </span>
             </Button>
           </DialogTrigger>
           <DialogContent>
