@@ -1,5 +1,6 @@
 import {
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -8,7 +9,7 @@ import {
   type KeyboardEvent,
 } from "react";
 import { useParams } from "react-router";
-import { gql, useMutation, useQuery } from "@apollo/client";
+import { gql, useLazyQuery, useMutation, useQuery } from "@apollo/client";
 import { toast } from "sonner";
 import { Loader2Icon } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -52,6 +53,42 @@ type ChatMessage = {
   deleted: boolean;
   mentionedUsernames: string[];
 };
+
+type MessagesQueryData = {
+  messages: {
+    edges: {
+      node: {
+        id: string;
+        userId: string;
+        username: string;
+        content: string;
+        createdAt: string;
+        editedAt: string | null;
+        deletedAt: string | null;
+        mentionedUsernames: string[];
+      };
+    }[];
+    pageInfo: { hasPreviousPage: boolean; startCursor: string | null };
+  };
+};
+
+function edgeToChatMessage(
+  edge: MessagesQueryData["messages"]["edges"][number],
+): ChatMessage {
+  const { node } = edge;
+  return {
+    id: node.id,
+    userId: node.userId,
+    username: node.username,
+    content: node.content,
+    createdAt: node.createdAt,
+    editedAt: node.editedAt,
+    deleted: node.deletedAt !== null,
+    mentionedUsernames: node.mentionedUsernames,
+  };
+}
+
+const NEAR_TOP_THRESHOLD_PX = 150;
 
 type RoomMemberRow = {
   user: { id: string; username: string };
@@ -124,8 +161,8 @@ const ROOM_MEMBERSHIP_CANDIDATES_QUERY = gql`
 `;
 
 const ROOM_MESSAGES_QUERY = gql`
-  query RoomMessages($roomId: ID!) {
-    messages(roomId: $roomId, first: 50) {
+  query RoomMessages($roomId: ID!, $before: String) {
+    messages(roomId: $roomId, before: $before) {
       edges {
         node {
           id
@@ -137,6 +174,10 @@ const ROOM_MESSAGES_QUERY = gql`
           deletedAt
           mentionedUsernames
         }
+      }
+      pageInfo {
+        hasPreviousPage
+        startCursor
       }
     }
   }
@@ -254,6 +295,18 @@ export function RoomPage() {
   }, [membersData, user?.id]);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [historyLoaded, setHistoryLoaded] = useState(false);
+  const [hasPreviousPage, setHasPreviousPage] = useState(false);
+  const [startCursor, setStartCursor] = useState<string | null>(null);
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  // a ref, not state: a burst of scroll events before the next render would
+  // all pass a state-based guard
+  const fetchingOlderRef = useRef(false);
+  const pendingScrollRestoreRef = useRef<{
+    scrollHeight: number;
+    scrollTop: number;
+  } | null>(null);
+  const scrollAdjustmentRef = useRef<"initial-load" | "prepend" | null>(null);
   const [draft, setDraft] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState("");
@@ -339,22 +392,7 @@ export function RoomPage() {
     { roomId: string; userId: string }
   >(REMOVE_ROOM_MEMBER_MUTATION);
 
-  const { data, loading } = useQuery<{
-    messages: {
-      edges: {
-        node: {
-          id: string;
-          userId: string;
-          username: string;
-          content: string;
-          createdAt: string;
-          editedAt: string | null;
-          deletedAt: string | null;
-          mentionedUsernames: string[];
-        };
-      }[];
-    };
-  }>(ROOM_MESSAGES_QUERY, {
+  const { data, loading } = useQuery<MessagesQueryData>(ROOM_MESSAGES_QUERY, {
     variables: { roomId },
     fetchPolicy: "network-only",
     skip: !roomId,
@@ -363,24 +401,61 @@ export function RoomPage() {
   useEffect(() => {
     if (!data || historyLoaded) return;
     // merge, don't replace: live messages can arrive before history resolves
+    scrollAdjustmentRef.current = "initial-load";
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setMessages((prev) => {
-      const history = data.messages.edges.map(({ node }) => ({
-        id: node.id,
-        userId: node.userId,
-        username: node.username,
-        content: node.content,
-        createdAt: node.createdAt,
-        editedAt: node.editedAt,
-        deleted: node.deletedAt !== null,
-        mentionedUsernames: node.mentionedUsernames,
-      }));
+      const history = data.messages.edges.map(edgeToChatMessage);
       const historyIds = new Set(history.map((m) => m.id));
       const liveOnly = prev.filter((m) => !historyIds.has(m.id));
       return [...history, ...liveOnly];
     });
     setHistoryLoaded(true);
+    setHasPreviousPage(data.messages.pageInfo.hasPreviousPage);
+    setStartCursor(data.messages.pageInfo.startCursor);
   }, [data, historyLoaded]);
+
+  const [fetchOlderMessages] = useLazyQuery<MessagesQueryData>(
+    ROOM_MESSAGES_QUERY,
+    {
+      fetchPolicy: "network-only",
+      onCompleted: (older) => {
+        const container = scrollContainerRef.current;
+        if (container) {
+          pendingScrollRestoreRef.current = {
+            scrollHeight: container.scrollHeight,
+            scrollTop: container.scrollTop,
+          };
+        }
+        scrollAdjustmentRef.current = "prepend";
+        setMessages((prev) => [
+          ...older.messages.edges.map(edgeToChatMessage),
+          ...prev,
+        ]);
+        setHasPreviousPage(older.messages.pageInfo.hasPreviousPage);
+        setStartCursor(older.messages.pageInfo.startCursor);
+        fetchingOlderRef.current = false;
+        setLoadingOlder(false);
+      },
+      onError: () => {
+        fetchingOlderRef.current = false;
+        setLoadingOlder(false);
+      },
+    },
+  );
+
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container || !roomId) return;
+    function handleScroll() {
+      if (fetchingOlderRef.current || !hasPreviousPage) return;
+      if (!container || container.scrollTop > NEAR_TOP_THRESHOLD_PX) return;
+      fetchingOlderRef.current = true;
+      setLoadingOlder(true);
+      void fetchOlderMessages({ variables: { roomId, before: startCursor } });
+    }
+    container.addEventListener("scroll", handleScroll);
+    return () => container.removeEventListener("scroll", handleScroll);
+  }, [hasPreviousPage, startCursor, roomId, fetchOlderMessages]);
 
   const { sendMessage, editMessage, deleteMessage } = useChatSocket(
     roomId ?? "",
@@ -447,7 +522,26 @@ export function RoomPage() {
     },
   );
 
-  useEffect(() => {
+  useLayoutEffect(() => {
+    const kind = scrollAdjustmentRef.current;
+    scrollAdjustmentRef.current = null;
+    const container = scrollContainerRef.current;
+
+    if (kind === "prepend") {
+      const pending = pendingScrollRestoreRef.current;
+      pendingScrollRestoreRef.current = null;
+      if (container && pending) {
+        const heightAdded = container.scrollHeight - pending.scrollHeight;
+        container.scrollTop = pending.scrollTop + heightAdded;
+      }
+      return;
+    }
+
+    if (kind === "initial-load") {
+      if (container) container.scrollTop = container.scrollHeight;
+      return;
+    }
+
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages.length]);
 
@@ -767,10 +861,15 @@ export function RoomPage() {
           </DialogContent>
         </Dialog>
       </div>
-      <ScrollArea className="flex-1 px-4">
+      <ScrollArea className="flex-1 px-4" viewportRef={scrollContainerRef}>
         <div className="mx-auto max-w-full space-y-3 py-4">
           {loading && !historyLoaded && (
             <p className="text-sm text-muted-foreground">Loading messages…</p>
+          )}
+          {loadingOlder && (
+            <p className="text-center text-sm text-muted-foreground">
+              Loading older messages…
+            </p>
           )}
           {orderedMessages.length === 0 && historyLoaded && (
             <p className="text-sm text-muted-foreground">
