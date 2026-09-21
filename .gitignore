@@ -6,4 +6,5 @@ server/src/generated/
 !.env.example
 *.log
 .DS_Store
+server/scratch-*.mjs
 .claude/settings.local.json
