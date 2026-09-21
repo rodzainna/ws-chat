@@ -156,10 +156,16 @@ export function AdminRoomsSection() {
           return (
             <div key={r.id} className="flex flex-col gap-2 p-3">
               <div className="flex items-center gap-2">
-                <span className="font-medium"># {r.name}</span>
-                {r.isPrivate && <Badge variant="secondary">Private</Badge>}
+                <span className="min-w-0 flex-1 truncate font-medium">
+                  # {r.name}
+                </span>
+                {r.isPrivate && (
+                  <Badge variant="secondary" className="shrink-0">
+                    Private
+                  </Badge>
+                )}
                 {r.isMember && (
-                  <span className="text-xs text-muted-foreground">
+                  <span className="shrink-0 text-xs text-muted-foreground">
                     (you're a member)
                   </span>
                 )}
@@ -173,7 +179,7 @@ export function AdminRoomsSection() {
                     <Button
                       size="sm"
                       variant="destructive"
-                      className="ml-auto"
+                      className="shrink-0"
                       disabled={isPending}
                     >
                       Delete
