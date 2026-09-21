@@ -161,6 +161,39 @@ export async function addRoomMember(
   }
 }
 
+const REMOVE_ROOM_MEMBER_MUTATION = `
+  mutation RemoveRoomMember($roomId: ID!, $userId: ID!) {
+    removeRoomMember(roomId: $roomId, userId: $userId) {
+      room { id }
+      userErrors { field message }
+    }
+  }
+`;
+
+export async function removeRoomMember(
+  baseUrl: string,
+  caller: TestUser,
+  roomId: string,
+  targetUserId: string,
+): Promise<void> {
+  const result = await graphqlRequest<{
+    removeRoomMember: {
+      room: { id: string } | null;
+      userErrors: { field: string[]; message: string }[];
+    };
+  }>(
+    baseUrl,
+    REMOVE_ROOM_MEMBER_MUTATION,
+    { roomId, userId: targetUserId },
+    caller.cookies,
+  );
+  if (!result.data?.removeRoomMember.room) {
+    throw new Error(
+      `removeRoomMember(${targetUserId}) failed: ${JSON.stringify(result.data?.removeRoomMember.userErrors ?? result.errors)}`,
+    );
+  }
+}
+
 const DEACTIVATE_USER_MUTATION = `
   mutation DeactivateUser($userId: ID!) {
     deactivateUser(userId: $userId) {
