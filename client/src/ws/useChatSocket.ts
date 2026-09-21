@@ -14,6 +14,7 @@ type ChatSocketHandlers = {
   onEdited?: (messageId: string, content: string, editedAt: string) => void;
   onDeleted?: (messageId: string) => void;
   onPresenceChanged?: (userId: string, online: boolean) => void;
+  onMembersChanged?: () => void;
   onError?: (code: string, message: string) => void;
 };
 
@@ -59,6 +60,11 @@ export function useChatSocket(roomId: string, handlers: ChatSocketHandlers) {
           return;
         case "presence_changed":
           handlers.onPresenceChanged?.(event.userId, event.online);
+          return;
+        case "room_members_changed":
+          if (event.roomId === roomId) handlers.onMembersChanged?.();
+          return;
+        case "added_to_room":
           return;
         case "session_expired":
           handlers.onError?.(

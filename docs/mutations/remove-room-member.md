@@ -24,9 +24,9 @@ type RemoveRoomMemberPayload {
 
 ## Auth
 
-Same gate as [`addRoomMember`](./add-room-member.md) — the room's owner or a global admin.
+Admin only — no room-owner exception. Deliberately **not** the same gate as [`addRoomMember`](./add-room-member.md): removing is moderation, not the owner exercising authority over their own room (same reasoning as [`deleteMessage`](./delete-message.md)'s admin-only gate having no owner carve-out either). A room's owner who isn't a global admin can no longer remove members from their own room.
 
-**Throws:** `FORBIDDEN` — `"Only the room owner or an admin can remove members"`.
+**Throws:** `FORBIDDEN` — `"Only an admin can remove room members"`.
 
 ## userErrors
 
@@ -75,7 +75,14 @@ Attempting to remove the owner:
 }
 ```
 
+## Live effects
+
+On success, two WebSocket events go out (see [WebSocket protocol](../websocket-protocol.md)):
+
+- **`room_members_changed`** — broadcast to everyone still viewing this room, so their member list refetches without a manual reload.
+- **`removed_from_room`** — sent to **every** open socket the removed user has, not just ones currently joined to this room. Their room sidebar isn't scoped to any one room, so it needs to hear about this even if they're sitting on the room list or looking at something else entirely when it happens.
+
 ## Notes
 
-- **On success, also evicts the removed member's live WebSocket session(s) from the room's in-memory registry** — a plain database delete would leave an already-connected socket still receiving and able to send messages in a room it no longer has a membership row for. See [`removed_from_room`](../websocket-protocol.md#removed_from_room) in the WebSocket protocol doc for the frame this triggers.
-- If the target has multiple open sockets (several tabs/devices), every one of them is evicted, not just one.
+- **On success, also evicts the removed member's live WebSocket session(s) from the room's in-memory registry** — a plain database delete would leave an already-connected socket still receiving and able to send messages in a room it no longer has a membership row for. See [`removed_from_room`](../websocket-protocol.md#removed_from_room) in the WebSocket protocol doc for the frame this triggers. Eviction itself stays scoped to sockets actually joined to the room — the notice above goes wider than eviction does.
+- If the target has multiple open sockets (several tabs/devices), every one of them is notified, and every one of them still joined to this room is evicted.

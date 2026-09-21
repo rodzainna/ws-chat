@@ -13,13 +13,13 @@ Every GraphQL mutation, one file per operation. See [`../api.md`](../api.md) for
 
 ## Rooms
 
-| Mutation                                      | Auth                        | Purpose                                   |
-| --------------------------------------------- | --------------------------- | ----------------------------------------- |
-| [`createRoom`](./create-room.md)              | Logged in, not `RESTRICTED` | Create a room, caller becomes owner       |
-| [`joinRoom`](./join-room.md)                  | Logged in, not `RESTRICTED` | Self-join a public room                   |
-| [`addRoomMember`](./add-room-member.md)       | Room owner or admin         | Add someone to a room (public or private) |
-| [`removeRoomMember`](./remove-room-member.md) | Room owner or admin         | Remove a member, evict their live sockets |
-| [`deleteRoom`](./delete-room.md)              | Room owner or admin         | Soft-delete a room                        |
+| Mutation                                      | Auth                         | Purpose                                   |
+| --------------------------------------------- | ---------------------------- | ----------------------------------------- |
+| [`createRoom`](./create-room.md)              | Logged in, not `RESTRICTED`  | Create a room, caller becomes owner       |
+| [`joinRoom`](./join-room.md)                  | Logged in, not `RESTRICTED`  | Self-join a public room                   |
+| [`addRoomMember`](./add-room-member.md)       | Any `ADMIN`/`USER`, any room | Add someone to a room (public or private) |
+| [`removeRoomMember`](./remove-room-member.md) | Admin only                   | Remove a member, evict their live sockets |
+| [`deleteRoom`](./delete-room.md)              | Room owner or admin          | Soft-delete a room                        |
 
 ## Messages
 

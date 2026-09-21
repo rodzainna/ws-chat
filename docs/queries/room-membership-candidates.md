@@ -20,14 +20,14 @@ Return type — `[RoomMemberUser!]!`, alphabetical by `username`. See [`roomMemb
 
 ## Auth
 
-Caller must be this room's owner or a global admin — the same gate [`addRoomMember`](../mutations/add-room-member.md) itself enforces.
+A global-role gate, not a room-scoped one — the same gate [`addRoomMember`](../mutations/add-room-member.md) itself enforces (any `ADMIN` or `USER`, not tied to owning or belonging to this specific room). Checked before the room lookup below, so a `RESTRICTED` caller gets `FORBIDDEN` even for a room that doesn't exist.
 
 **Throws:**
 
-| Code        | Message                                                    | When                                     |
-| ----------- | ---------------------------------------------------------- | ---------------------------------------- |
-| `NOT_FOUND` | —                                                          | Room doesn't exist                       |
-| `FORBIDDEN` | `"Only the room owner or an admin can view addable users"` | Caller isn't the owner or a global admin |
+| Code        | Message                                      | When                                  |
+| ----------- | -------------------------------------------- | ------------------------------------- |
+| `FORBIDDEN` | `"Restricted users cannot add room members"` | Caller's `globalRole` is `RESTRICTED` |
+| `NOT_FOUND` | —                                            | Room doesn't exist                    |
 
 ## Example
 

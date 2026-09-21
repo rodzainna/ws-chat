@@ -21,3 +21,7 @@ export function isRoomOwnerOrAdmin(
 ): boolean {
   return membership?.role === "OWNER" || user.globalRole === "ADMIN";
 }
+
+export function canAddRoomMembers(user: { globalRole: GlobalRole }): boolean {
+  return user.globalRole !== "RESTRICTED";
+}

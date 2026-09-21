@@ -25,6 +25,8 @@ export type ServerMessage =
   | { type: "message_deleted"; messageId: string }
   | { type: "room_deleted"; roomId: string }
   | { type: "removed_from_room"; roomId: string }
+  | { type: "added_to_room"; roomId: string }
+  | { type: "room_members_changed"; roomId: string }
   | {
       type: "session_expired";
       reason: "deactivated" | "token_expired" | "logged_out";

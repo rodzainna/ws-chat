@@ -88,4 +88,4 @@ Success:
 ## Notes
 
 - The creator is automatically added as the room's `OWNER` — there's no separate "join your own room" step.
-- `RESTRICTED` accounts can participate in rooms they're already members of, but can neither create rooms nor self-join public ones (see [`joinRoom`](./join-room.md)) — they can only be added by an owner or admin via [`addRoomMember`](./add-room-member.md).
+- `RESTRICTED` accounts can participate in rooms they're already members of, but can neither create rooms nor self-join public ones (see [`joinRoom`](./join-room.md)) — they can only be added by another non-`RESTRICTED` user via [`addRoomMember`](./add-room-member.md).
