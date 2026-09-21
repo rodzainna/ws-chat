@@ -6,7 +6,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/auth/useAuth";
-import { consumePendingSessionExpiredMessage } from "@/ws/sessionExpiredMessages";
+import {
+  consumePendingSessionExpiredMessage,
+  consumePendingReturnTo,
+} from "@/ws/sessionExpiredMessages";
 
 type UserError = { field: string[]; message: string };
 type AuthPayload = { user: { id: string } | null; userErrors: UserError[] };
@@ -46,6 +49,7 @@ export function LoginPage() {
   const [sessionExpiredMessage] = useState(() =>
     consumePendingSessionExpiredMessage(),
   );
+  const [returnTo] = useState(() => consumePendingReturnTo());
   const [mode, setMode] = useState<"login" | "register">("login");
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
@@ -62,7 +66,7 @@ export function LoginPage() {
   >(REGISTER_MUTATION);
 
   if (!loading && user) {
-    return <Navigate to="/" replace />;
+    return <Navigate to={returnTo ?? "/"} replace />;
   }
 
   async function handleAuthResult(payload: AuthPayload | undefined) {

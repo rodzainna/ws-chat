@@ -1,21 +1,20 @@
-export const SESSION_EXPIRED_MESSAGES: Record<string, string> = {
-  deactivated: "Your account has been deactivated.",
-  token_expired: "Your session expired — reload the page to log back in.",
-  logged_out: "You've been logged out.",
-};
-export const DEFAULT_SESSION_EXPIRED_MESSAGE =
-  "Your session has ended — reload the page.";
+const LOGGED_OUT_MESSAGE = "You've been logged out.";
 
+// not navigate() state: ProtectedRoute's own <Navigate replace> would wipe
+// it. LoginPage reads this once on mount.
 let pendingMessage: string | null = null;
-
-function setPendingSessionExpiredMessage(message: string): void {
-  pendingMessage ??= message;
-}
+let pendingReturnTo: string | null = null;
 
 export function consumePendingSessionExpiredMessage(): string | null {
   const message = pendingMessage;
   pendingMessage = null;
   return message;
+}
+
+export function consumePendingReturnTo(): string | null {
+  const returnTo = pendingReturnTo;
+  pendingReturnTo = null;
+  return returnTo;
 }
 
 type NavigateFn = (
@@ -26,13 +25,9 @@ type NavigateFn = (
 export function expireSession(
   navigate: NavigateFn,
   clearUser: () => void,
-  reason?: string,
 ): void {
-  setPendingSessionExpiredMessage(
-    reason
-      ? (SESSION_EXPIRED_MESSAGES[reason] ?? DEFAULT_SESSION_EXPIRED_MESSAGE)
-      : DEFAULT_SESSION_EXPIRED_MESSAGE,
-  );
+  pendingMessage = LOGGED_OUT_MESSAGE;
+  pendingReturnTo = window.location.pathname + window.location.search;
   clearUser();
   void navigate("/login", { replace: true });
 }

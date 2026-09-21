@@ -12,7 +12,7 @@ import {
   rotateRefreshToken,
   revokeAllRefreshTokensForUser,
 } from "../db/refreshTokens.js";
-import { findActiveUserById } from "../db/users.js";
+import { findUserById } from "../db/users.js";
 import type { User } from "../generated/prisma/client.js";
 
 // shared by register and login. Sequential on purpose: signing first means a
@@ -64,9 +64,14 @@ export async function rotateSession(
     return { ok: false };
   }
 
-  const user = await findActiveUserById(row.userId);
+  const user = await findUserById(row.userId);
   if (!user) {
     clearAuthCookies(res);
+    return { ok: false };
+  }
+  // cookies kept: deactivation is reversible, and the client's reauth retry
+  // (beginReauthRecovery) resumes the session once reactivated
+  if (!user.isActive) {
     return { ok: false };
   }
 

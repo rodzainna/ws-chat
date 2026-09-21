@@ -1,10 +1,6 @@
 import { useCallback, useEffect, useRef } from "react";
 import type { ConnectionEvent, WsChatMessage } from "./ChatConnectionProvider";
 import { useChatConnection } from "./useChatConnection";
-import {
-  SESSION_EXPIRED_MESSAGES,
-  DEFAULT_SESSION_EXPIRED_MESSAGE,
-} from "./sessionExpiredMessages";
 
 export type { WsChatMessage };
 
@@ -67,11 +63,6 @@ export function useChatSocket(roomId: string, handlers: ChatSocketHandlers) {
         case "added_to_room":
           return;
         case "session_expired":
-          handlers.onError?.(
-            "SESSION_EXPIRED",
-            SESSION_EXPIRED_MESSAGES[event.reason] ??
-              DEFAULT_SESSION_EXPIRED_MESSAGE,
-          );
           return;
         case "connection_lost":
           handlers.onError?.(
