@@ -88,6 +88,16 @@ export async function findRoomMembersByUsernames(
   return members.map((m) => m.user);
 }
 
+export function findUsersNotInRoom(roomId: string): Promise<User[]> {
+  return getPrisma().user.findMany({
+    where: {
+      isActive: true,
+      roomMembers: { none: { roomId } },
+    },
+    orderBy: { username: "asc" },
+  });
+}
+
 export async function findRoomMembers(
   roomId: string,
 ): Promise<{ user: User; role: RoomRole }[]> {

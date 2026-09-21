@@ -188,6 +188,7 @@ export const typeDefs = `#graphql
     accessTokenExpiresAt: DateTime
     rooms: [Room!]!
     roomMembers(roomId: ID!): [RoomMember!]!
+    roomMembershipCandidates(roomId: ID!): [RoomMemberUser!]!
     messages(roomId: ID!, first: Int, after: String): MessageConnection!
     users(first: Int, after: String): UserConnection!
     adminRooms(first: Int, after: String): RoomConnection!

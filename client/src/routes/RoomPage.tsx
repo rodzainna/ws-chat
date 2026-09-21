@@ -1,4 +1,12 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type FormEvent,
+  type KeyboardEvent,
+} from "react";
 import { useParams } from "react-router";
 import { gql, useMutation, useQuery } from "@apollo/client";
 import { toast } from "sonner";
@@ -30,6 +38,7 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/auth/useAuth";
 import { useChatSocket, type WsChatMessage } from "@/ws/useChatSocket";
 import { ROOMS_QUERY } from "@/graphql/queries";
+import { useSuggestionNavigation } from "@/hooks/useSuggestionNavigation";
 
 type Room = { id: string; name: string; isPrivate: boolean };
 
@@ -105,6 +114,15 @@ const REMOVE_ROOM_MEMBER_MUTATION = gql`
   }
 `;
 
+const ROOM_MEMBERSHIP_CANDIDATES_QUERY = gql`
+  query RoomMembershipCandidates($roomId: ID!) {
+    roomMembershipCandidates(roomId: $roomId) {
+      id
+      username
+    }
+  }
+`;
+
 const ROOM_MESSAGES_QUERY = gql`
   query RoomMessages($roomId: ID!) {
     messages(roomId: $roomId, first: 50) {
@@ -169,6 +187,48 @@ function renderContentWithMentions(
   );
 }
 
+type SuggestionItem = { id: string; username: string };
+
+// shared by the @mention picker and "Add people". onMouseDown so the input's
+// onBlur doesn't close the list before the click registers.
+function UsernameSuggestions({
+  items,
+  highlightedIndex,
+  onSelect,
+  position,
+}: {
+  items: SuggestionItem[];
+  highlightedIndex: number;
+  onSelect: (item: SuggestionItem) => void;
+  position: "above" | "below";
+}) {
+  if (items.length === 0) return null;
+  return (
+    <ul
+      className={cn(
+        "absolute z-10 max-h-48 w-full overflow-y-auto rounded-md border bg-popover py-1 shadow-md",
+        position === "above" ? "bottom-full mb-1" : "top-full mt-1",
+      )}
+    >
+      {items.map((item, index) => (
+        <li
+          key={item.id}
+          onMouseDown={(event) => {
+            event.preventDefault();
+            onSelect(item);
+          }}
+          className={cn(
+            "cursor-pointer px-3 py-1.5 text-sm",
+            index === highlightedIndex ? "bg-muted" : "hover:bg-muted",
+          )}
+        >
+          {item.username}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 export function RoomPage() {
   const { roomId } = useParams<{ roomId: string }>();
   const { user } = useAuth();
@@ -182,9 +242,14 @@ export function RoomPage() {
     if (!membersData) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setMembers(
-      membersData.roomMembers.map((member) =>
-        member.user.id === user?.id ? { ...member, isOnline: true } : member,
-      ),
+      membersData.roomMembers
+        .map((member) =>
+          member.user.id === user?.id ? { ...member, isOnline: true } : member,
+        )
+        .sort((a, b) => {
+          if (a.role !== b.role) return a.role === "OWNER" ? -1 : 1;
+          return a.user.username.localeCompare(b.user.username);
+        }),
     );
   }, [membersData, user?.id]);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -196,12 +261,45 @@ export function RoomPage() {
   const [addMemberOpen, setAddMemberOpen] = useState(false);
   const [addMemberUsername, setAddMemberUsername] = useState("");
   const [addMemberError, setAddMemberError] = useState<string | null>(null);
+  const [showAddSuggestions, setShowAddSuggestions] = useState(true);
+  const addMemberInputRef = useRef<HTMLInputElement>(null);
+  const [mentionQuery, setMentionQuery] = useState<string | null>(null);
+  const draftInputRef = useRef<HTMLInputElement>(null);
   const [removingMemberIds, setRemovingMemberIds] = useState<Set<string>>(
     new Set(),
   );
   const [removeMemberError, setRemoveMemberError] = useState<string | null>(
     null,
   );
+
+  const { data: candidatesData } = useQuery<{
+    roomMembershipCandidates: SuggestionItem[];
+  }>(ROOM_MEMBERSHIP_CANDIDATES_QUERY, {
+    variables: { roomId },
+    skip: !roomId || !addMemberOpen,
+    fetchPolicy: "network-only",
+  });
+  const addMemberCandidates = useMemo<SuggestionItem[]>(() => {
+    if (!showAddSuggestions) return [];
+    const all = candidatesData?.roomMembershipCandidates ?? [];
+    const query = addMemberUsername.trim().toLowerCase();
+    const matches = query
+      ? all.filter((c) => c.username.toLowerCase().startsWith(query))
+      : all;
+    return matches.slice(0, 8);
+  }, [candidatesData, addMemberUsername, showAddSuggestions]);
+  const addMemberNav = useSuggestionNavigation(addMemberCandidates.length);
+
+  const mentionCandidates = useMemo<SuggestionItem[]>(() => {
+    if (mentionQuery === null) return [];
+    const query = mentionQuery.toLowerCase();
+    return members
+      .filter((m) => m.user.username.toLowerCase().startsWith(query))
+      .slice(0, 5)
+      .map((m) => ({ id: m.user.id, username: m.user.username }));
+  }, [members, mentionQuery]);
+  const mentionNav = useSuggestionNavigation(mentionCandidates.length);
+
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [deletePending, setDeletePending] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -368,6 +466,46 @@ export function RoomPage() {
     setDraft("");
   }
 
+  function handleDraftChange(event: ChangeEvent<HTMLInputElement>) {
+    const value = event.target.value;
+    setDraft(value);
+    const cursorPos = event.target.selectionStart ?? value.length;
+    const match = value.slice(0, cursorPos).match(/(?:^|\s)@([a-z0-9_]*)$/i);
+    mentionNav.setHighlightedIndex(0);
+    setMentionQuery(match ? match[1] : null);
+  }
+
+  function selectMention(username: string) {
+    const input = draftInputRef.current;
+    const cursorPos = input?.selectionStart ?? draft.length;
+    const before = draft
+      .slice(0, cursorPos)
+      .replace(/@[a-z0-9_]*$/i, `@${username} `);
+    const after = draft.slice(cursorPos);
+    setDraft(before + after);
+    setMentionQuery(null);
+    requestAnimationFrame(() => {
+      input?.focus();
+      input?.setSelectionRange(before.length, before.length);
+    });
+  }
+
+  function handleDraftKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    if (mentionQuery === null || mentionCandidates.length === 0) return;
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      mentionNav.moveDown();
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      mentionNav.moveUp();
+    } else if (event.key === "Enter" || event.key === "Tab") {
+      event.preventDefault();
+      selectMention(mentionCandidates[mentionNav.highlightedIndex].username);
+    } else if (event.key === "Escape") {
+      setMentionQuery(null);
+    }
+  }
+
   function startEdit(message: ChatMessage) {
     setEditingId(message.id);
     setEditDraft(message.content);
@@ -414,6 +552,36 @@ export function RoomPage() {
   );
   const canAddMembers =
     !!membersData && (isRoomOwner || user?.globalRole === "ADMIN");
+
+  function handleAddMemberUsernameChange(event: ChangeEvent<HTMLInputElement>) {
+    setAddMemberUsername(event.target.value);
+    setShowAddSuggestions(true);
+    addMemberNav.setHighlightedIndex(0);
+  }
+
+  function selectAddMemberCandidate(username: string) {
+    setAddMemberUsername(username);
+    setShowAddSuggestions(false);
+    addMemberInputRef.current?.focus();
+  }
+
+  function handleAddMemberKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    if (!showAddSuggestions || addMemberCandidates.length === 0) return;
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      addMemberNav.moveDown();
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      addMemberNav.moveUp();
+    } else if (event.key === "Enter" || event.key === "Tab") {
+      event.preventDefault();
+      selectAddMemberCandidate(
+        addMemberCandidates[addMemberNav.highlightedIndex].username,
+      );
+    } else if (event.key === "Escape") {
+      setShowAddSuggestions(false);
+    }
+  }
 
   async function handleAddMember(event: FormEvent) {
     event.preventDefault();
@@ -541,14 +709,25 @@ export function RoomPage() {
                     onSubmit={(event) => void handleAddMember(event)}
                     className="flex items-center gap-2"
                   >
-                    <Input
-                      autoFocus
-                      placeholder="Username"
-                      value={addMemberUsername}
-                      onChange={(event) =>
-                        setAddMemberUsername(event.target.value)
-                      }
-                    />
+                    <div className="relative flex-1">
+                      <Input
+                        ref={addMemberInputRef}
+                        autoFocus
+                        placeholder="Username"
+                        value={addMemberUsername}
+                        onChange={handleAddMemberUsernameChange}
+                        onKeyDown={handleAddMemberKeyDown}
+                        onBlur={() => setShowAddSuggestions(false)}
+                      />
+                      <UsernameSuggestions
+                        items={addMemberCandidates}
+                        highlightedIndex={addMemberNav.highlightedIndex}
+                        onSelect={(item) =>
+                          selectAddMemberCandidate(item.username)
+                        }
+                        position="below"
+                      />
+                    </div>
                     <Button type="submit" size="sm" disabled={addingMember}>
                       Add
                     </Button>
@@ -570,7 +749,10 @@ export function RoomPage() {
                     variant="outline"
                     size="sm"
                     className="w-full"
-                    onClick={() => setAddMemberOpen(true)}
+                    onClick={() => {
+                      setAddMemberOpen(true);
+                      setShowAddSuggestions(true);
+                    }}
                   >
                     Add people
                   </Button>
@@ -740,13 +922,23 @@ export function RoomPage() {
       )}
 
       <form onSubmit={handleSend} className="flex gap-2 border-t p-4">
-        <Input
-          value={draft}
-          onChange={(event) => setDraft(event.target.value)}
-          placeholder="Message…"
-          maxLength={2000}
-          className="flex-1"
-        />
+        <div className="relative flex-1">
+          <Input
+            ref={draftInputRef}
+            value={draft}
+            onChange={handleDraftChange}
+            onKeyDown={handleDraftKeyDown}
+            onBlur={() => setMentionQuery(null)}
+            placeholder="Message…"
+            maxLength={2000}
+          />
+          <UsernameSuggestions
+            items={mentionCandidates}
+            highlightedIndex={mentionNav.highlightedIndex}
+            onSelect={(item) => selectMention(item.username)}
+            position="above"
+          />
+        </div>
         <Button type="submit">Send</Button>
       </form>
     </div>
