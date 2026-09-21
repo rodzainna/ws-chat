@@ -27,8 +27,8 @@ vi.mock("../db/refreshTokens.js", () => ({
   createRefreshTokenRecord,
 }));
 
-const findActiveUserById = vi.fn();
-vi.mock("../db/users.js", () => ({ findActiveUserById }));
+const findUserById = vi.fn();
+vi.mock("../db/users.js", () => ({ findUserById }));
 
 const { rotateSession } = await import("./session.js");
 
@@ -59,7 +59,7 @@ describe("rotateSession", () => {
     findRefreshTokenByPlaintext.mockReset();
     rotateRefreshToken.mockReset();
     revokeAllRefreshTokensForUser.mockReset();
-    findActiveUserById.mockReset();
+    findUserById.mockReset();
     issueToken.mockReset();
     generateRefreshToken.mockReset().mockReturnValue(NEW_TOKEN);
     setAuthCookies.mockReset();
@@ -123,11 +123,11 @@ describe("rotateSession", () => {
     expect(clearAuthCookies).toHaveBeenCalledWith(fakeRes);
   });
 
-  it("clears cookies when the owning account is no longer active", async () => {
+  it("clears cookies when the token's user no longer exists", async () => {
     findRefreshTokenByPlaintext.mockResolvedValue(
       makeTokenRow({ revokedAt: null }),
     );
-    findActiveUserById.mockResolvedValue(null);
+    findUserById.mockResolvedValue(null);
 
     const result = await rotateSession(fakeReq("token"), fakeRes);
 
@@ -135,12 +135,25 @@ describe("rotateSession", () => {
     expect(clearAuthCookies).toHaveBeenCalledWith(fakeRes);
   });
 
+  it("fails without clearing cookies when the account is deactivated", async () => {
+    findRefreshTokenByPlaintext.mockResolvedValue(
+      makeTokenRow({ revokedAt: null }),
+    );
+    findUserById.mockResolvedValue({ id: "user-1", isActive: false });
+
+    const result = await rotateSession(fakeReq("token"), fakeRes);
+
+    expect(result).toEqual({ ok: false });
+    expect(clearAuthCookies).not.toHaveBeenCalled();
+    expect(setAuthCookies).not.toHaveBeenCalled();
+  });
+
   it("rotates successfully for a valid, live token", async () => {
     const user = { id: "user-1", isActive: true };
     findRefreshTokenByPlaintext.mockResolvedValue(
       makeTokenRow({ revokedAt: null }),
     );
-    findActiveUserById.mockResolvedValue(user);
+    findUserById.mockResolvedValue(user);
     const accessTokenExpiresAt = new Date("2026-01-01T00:15:00Z");
     issueToken.mockResolvedValue({
       token: "access-token",
@@ -162,7 +175,7 @@ describe("rotateSession", () => {
     findRefreshTokenByPlaintext.mockResolvedValue(
       makeTokenRow({ revokedAt: null }),
     );
-    findActiveUserById.mockResolvedValue({ id: "user-1", isActive: true });
+    findUserById.mockResolvedValue({ id: "user-1", isActive: true });
     issueToken.mockResolvedValue({
       token: "access-token",
       expiresAt: new Date("2026-01-01T00:15:00Z"),

@@ -8,11 +8,6 @@ import {
 import { onError } from "@apollo/client/link/error";
 import { Observable } from "@apollo/client/utilities";
 
-let onSessionExpired: (() => void) | null = null;
-export function setSessionExpiredHandler(handler: () => void): void {
-  onSessionExpired = handler;
-}
-
 const refreshListeners = new Set<() => void>();
 export function onSessionRefreshed(listener: () => void): () => void {
   refreshListeners.add(listener);
@@ -22,17 +17,65 @@ export function onSessionRefreshed(listener: () => void): () => void {
 const REFRESH_BUFFER_MS = 60_000;
 
 let refreshTimer: ReturnType<typeof setTimeout> | undefined;
+let scheduledRefreshAt: number | null = null;
 
 export function scheduleProactiveRefresh(expiresAtMs: number): void {
   clearTimeout(refreshTimer);
   const delay = Math.max(expiresAtMs - Date.now() - REFRESH_BUFFER_MS, 0);
+  scheduledRefreshAt = Date.now() + delay;
   refreshTimer = setTimeout(() => {
     void attemptRefresh();
   }, delay);
 }
 
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState !== "visible") return;
+  if (scheduledRefreshAt !== null && Date.now() >= scheduledRefreshAt) {
+    void attemptRefresh();
+  }
+});
+
+export type ReauthState = { active: boolean; message: string };
+const INACTIVE_REAUTH_STATE: ReauthState = { active: false, message: "" };
+let reauthState: ReauthState = INACTIVE_REAUTH_STATE;
+const reauthListeners = new Set<(state: ReauthState) => void>();
+
+function setReauthState(next: ReauthState): void {
+  reauthState = next;
+  for (const listener of reauthListeners) listener(next);
+}
+
+export function subscribeReauthState(
+  listener: (state: ReauthState) => void,
+): () => void {
+  listener(reauthState);
+  reauthListeners.add(listener);
+  return () => reauthListeners.delete(listener);
+}
+
+const REAUTH_RETRY_INTERVAL_MS = 10_000;
+let reauthRetryTimer: ReturnType<typeof setInterval> | undefined;
+
+export function beginReauthRecovery(message: string): void {
+  setReauthState({ active: true, message });
+  if (reauthRetryTimer) return;
+  reauthRetryTimer = setInterval(() => {
+    void attemptRefresh().then((refreshed) => {
+      if (refreshed) stopReauthRecovery();
+    });
+  }, REAUTH_RETRY_INTERVAL_MS);
+}
+
+function stopReauthRecovery(): void {
+  clearInterval(reauthRetryTimer);
+  reauthRetryTimer = undefined;
+  setReauthState(INACTIVE_REAUTH_STATE);
+}
+
 export function cancelProactiveRefresh(): void {
   clearTimeout(refreshTimer);
+  scheduledRefreshAt = null;
+  stopReauthRecovery();
 }
 
 const REFRESH_MUTATION = gql`
@@ -90,7 +133,7 @@ const errorLink = onError(({ graphQLErrors, operation, forward }) => {
     attemptRefresh()
       .then((refreshed) => {
         if (!refreshed) {
-          onSessionExpired?.();
+          beginReauthRecovery("Reconnecting…");
           observer.error(graphQLErrors?.[0]);
           return;
         }
