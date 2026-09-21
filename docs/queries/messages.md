@@ -53,7 +53,12 @@ type Message {
 
 Caller must be able to access the room (same `canAccessRoom` check the WebSocket `join` handler uses — see [WebSocket protocol](../websocket-protocol.md)).
 
-**Throws:** `FORBIDDEN` — `"You are not a member of this room"`.
+**Throws:**
+
+| Code             | Message                               | When                         |
+| ---------------- | ------------------------------------- | ---------------------------- |
+| `FORBIDDEN`      | `"You are not a member of this room"` | Caller can't access the room |
+| `BAD_USER_INPUT` | `"first must be a positive integer"`  | `first` is `0` or negative   |
 
 ## Example
 
@@ -123,5 +128,5 @@ A soft-deleted message still comes back through this query — the client render
 ## Notes
 
 - **Cursor over offset, deliberately.** Messages are actively being inserted while someone might be paging back through history. An offset-based page (`OFFSET 20 LIMIT 20`) can skip or repeat rows when new rows land between two requests — a cursor anchored to a specific row's position can't.
-- **Only returns messages at or before the moment the caller's WebSocket `join` for this room was acknowledged.** Anything sent after that point arrives live over the socket instead of through this query. This "join first, fetch bounded by the join timestamp" ordering is what prevents a message sent in the gap between "fetch history" and "join" from being silently dropped by either path — it lands in exactly one of the two, never both, never neither.
+- **No time bound of its own — always returns the room's full current history up to `first`.** The WS `join` handshake and this query are fired together and race independently on the client; there's no server-side "only messages before you joined" filter. Instead, the client merges the two by message id: any message that arrives live over the socket _before_ this query resolves is kept, and the query's own result fills in everything before it. That merge is what prevents a message sent in the connect/fetch window from being silently dropped — without it, a `setMessages(history)` that just replaced state on query-resolve would erase anything the socket had already delivered.
 - Sending, editing, and deleting messages are **not** GraphQL mutations — they're WebSocket frames. See [`websocket-protocol.md`](../websocket-protocol.md) for why the transport is split this way.

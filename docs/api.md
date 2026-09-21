@@ -25,6 +25,7 @@ The rule of thumb: if a well-behaved client could hit this by doing something a 
 - **Refresh token** — a longer-lived (3 day), DB-backed, single-use, rotating token. [`refresh`](./mutations/refresh.md) exchanges it for a fresh pair; reusing an already-rotated one revokes every live session for that user, treating reuse itself as a leak signal.
 - **WebSocket auth** reads the same cookie at connect time (`Cookie` header on the upgrade request) — an unauthenticated upgrade is rejected outright (401), never admitted as an anonymous connection, since sockets are keyed by `userId` everywhere downstream (rate limiting, presence, force-disconnect).
 - **Roles** are two independent layers: a **global role** (`ADMIN` / `USER` / `RESTRICTED`) on `User`, and a **per-room role** (`OWNER` / `MEMBER`) on `RoomMember`. A room owner isn't necessarily a global admin, and a global admin doesn't need a `RoomMember` row to act on a room.
+- **Every operation except [`me`](./queries/me.md), [`accessTokenExpiresAt`](./queries/access-token-expires-at.md), [`register`](./mutations/register.md), [`login`](./mutations/login.md), [`logout`](./mutations/logout.md), and [`refresh`](./mutations/refresh.md) throws `UNAUTHENTICATED` — `"Not authenticated"` — if the caller has no valid session,** before any of its own auth or validation logic runs. Each operation's own page documents what happens _after_ that shared gate; this line isn't repeated on every single one.
 
 ## Pagination
 

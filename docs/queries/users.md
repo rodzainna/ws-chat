@@ -47,10 +47,10 @@ Admin only.
 
 **Throws:**
 
-| Code             | Message                          | When                             |
-| ---------------- | -------------------------------- | -------------------------------- |
-| `FORBIDDEN`      | `"Only an admin can list users"` | Caller isn't a global admin      |
-| `BAD_USER_INPUT` | —                                | `first` isn't a positive integer |
+| Code             | Message                              | When                        |
+| ---------------- | ------------------------------------ | --------------------------- |
+| `FORBIDDEN`      | `"Only an admin can list users"`     | Caller isn't a global admin |
+| `BAD_USER_INPUT` | `"first must be a positive integer"` | `first` is `0` or negative  |
 
 ## Example
 
