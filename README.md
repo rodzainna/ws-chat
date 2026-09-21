@@ -135,8 +135,8 @@ CI runs all of the above (plus a production build) on every push and pull reques
 ## Known limitations
 
 - No sound or browser notification when a new message arrives in a room you aren't viewing — unread/mention badges are visual only
-- No file/image uploads — only auto-detected image _links_ are displayed inline, and only for a fixed set of extensions
-- No true end-to-end message encryption — server-side content access is required for @mention parsing, so TLS + at-rest encryption is the deliberate tradeoff here
+- No file/image uploads, and no inline preview of image links either — messages are plain text with @mention highlighting only
+- No true end-to-end message encryption — server-side content access is required for @mention parsing. TLS in transit and disk encryption at rest are whatever the hosting platform (Render/Supabase) provides by default, not something this app configures itself
 - Single-instance only: rate limiting and WebSocket room state are in-memory; a multi-instance deployment would need Redis pub/sub for both
 - No read receipts, typing indicators, password reset, or email verification
 - No auto-reassignment of room ownership if a room's owner is deactivated
