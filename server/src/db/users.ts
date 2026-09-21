@@ -90,6 +90,13 @@ export function deactivateUserByIdGuarded(
   );
 }
 
+export function reactivateUserById(userId: string): Promise<User | null> {
+  return getPrisma().user.update({
+    where: { id: userId },
+    data: { isActive: true },
+  });
+}
+
 export function findUsersPage(input: {
   take: number;
   afterId?: string;
