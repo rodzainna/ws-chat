@@ -25,14 +25,14 @@ type JoinRoomPayload {
 
 Logged in, and not `RESTRICTED`.
 
-**Throws:** `FORBIDDEN` — `"Restricted users cannot join rooms directly"`. Restricted accounts never self-join, public or private — the only way in is [`addRoomMember`](./add-room-member.md) from an owner or admin.
+**Throws:** `FORBIDDEN` — `"Restricted users cannot join rooms directly"`. Restricted accounts never self-join, public or private — the only way in is [`addRoomMember`](./add-room-member.md) from another non-`RESTRICTED` user.
 
 ## userErrors
 
 | Field    | Message                                                     | Condition                                                                      |
 | -------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------ |
 | `roomId` | `"Room not found"`                                          | Room doesn't exist, or has been soft-deleted.                                  |
-| `roomId` | `"This room is private — ask an owner or admin to add you"` | Room exists and is private.                                                    |
+| `roomId` | `"This room is private — ask a member or admin to add you"` | Room exists and is private.                                                    |
 | `roomId` | `"You are already a member of this room"`                   | Race-safe via the `(roomId, userId)` composite primary key on room membership. |
 
 ## Example
@@ -75,7 +75,7 @@ Room is private (caller isn't a member):
       "userErrors": [
         {
           "field": ["roomId"],
-          "message": "This room is private — ask an owner or admin to add you"
+          "message": "This room is private — ask a member or admin to add you"
         }
       ]
     }
@@ -86,4 +86,4 @@ Room is private (caller isn't a member):
 ## Notes
 
 - Checks run in order: room exists → room is public → not already a member. A private room's `roomId` still needs to have reached the client from somewhere (private rooms the caller doesn't belong to are never surfaced by [`rooms`](../queries/rooms.md) in the first place), so this mutation confirming "this room is private" isn't the leak — the listing query is what actually withholds existence.
-- Adding someone to a **private** room is a different mutation entirely: [`addRoomMember`](./add-room-member.md), gated to the room's owner or an admin.
+- Adding someone to a **private** room is a different mutation entirely: [`addRoomMember`](./add-room-member.md), gated to any non-`RESTRICTED` user, not room ownership.

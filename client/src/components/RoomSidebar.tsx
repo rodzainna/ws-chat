@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { NavLink, useMatches, useNavigate } from "react-router";
 import { gql, useMutation, useQuery } from "@apollo/client";
 import { ChevronRightIcon } from "lucide-react";
@@ -19,6 +19,8 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/auth/useAuth";
 import { useRoomActivity } from "@/ws/useRoomActivity";
+import { useChatConnection } from "@/ws/useChatConnection";
+import type { ConnectionEvent } from "@/ws/ChatConnectionProvider";
 
 type Room = {
   id: string;
@@ -80,6 +82,19 @@ export function RoomSidebar({
   const { data, loading, error, refetch } = useQuery<{ rooms: Room[] }>(
     ROOMS_QUERY,
   );
+
+  const { subscribe } = useChatConnection();
+  useEffect(() => {
+    return subscribe((event: ConnectionEvent) => {
+      if (
+        event.type !== "added_to_room" &&
+        event.type !== "removed_from_room"
+      ) {
+        return;
+      }
+      void refetch();
+    });
+  }, [subscribe, refetch]);
   const sortedRooms = [...(data?.rooms ?? [])].sort((a, b) =>
     a.name.localeCompare(b.name),
   );

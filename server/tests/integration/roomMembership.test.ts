@@ -9,7 +9,10 @@ import {
   createRoom,
   addRoomMember,
   removeRoomMember,
+  setGlobalRole,
   graphqlRequest,
+  connectSocket,
+  joinRoomOverSocket,
 } from "./testClient.js";
 
 const ADD_ROOM_MEMBER_MUTATION = `
@@ -94,11 +97,11 @@ describe("addRoomMember", () => {
     );
   });
 
-  it("rejects a caller who is neither the room owner nor an admin", async () => {
+  it("lets a regular user who neither owns nor belongs to the room add a member", async () => {
     const [alice, bob] = await registerUsers(ctx.server.baseUrl, [
       "alice",
       "bob",
-      "carol",
+      "dave",
     ]);
     const room = await createRoom(
       ctx.server.baseUrl,
@@ -106,16 +109,46 @@ describe("addRoomMember", () => {
       "leadership",
       true,
     );
-    await addRoomMember(ctx.server.baseUrl, alice, room.id, "bob");
+
+    await addRoomMember(ctx.server.baseUrl, bob, room.id, "dave");
+
+    const result = await graphqlRequest<{
+      roomMembers: { user: { username: string } }[];
+    }>(
+      ctx.server.baseUrl,
+      ROOM_MEMBERS_QUERY,
+      { roomId: room.id },
+      alice.cookies,
+    );
+    expect(result.data?.roomMembers.map((m) => m.user.username)).toContain(
+      "dave",
+    );
+  });
+
+  it("rejects a RESTRICTED caller", async () => {
+    const [alice, , carol, admin] = await registerUsers(ctx.server.baseUrl, [
+      "alice",
+      "bob",
+      "carol",
+      "admin",
+    ]);
+    const room = await createRoom(
+      ctx.server.baseUrl,
+      alice,
+      "leadership",
+      true,
+    );
+    await promoteToAdmin(admin.id);
+    await setGlobalRole(ctx.server.baseUrl, admin, carol.id, "RESTRICTED");
 
     const result = await graphqlRequest(
       ctx.server.baseUrl,
       ADD_ROOM_MEMBER_MUTATION,
-      { roomId: room.id, username: "carol" },
-      bob.cookies,
+      { roomId: room.id, username: "bob" },
+      carol.cookies,
     );
 
-    expect(result.errors?.[0]?.message).toMatch(/owner or an admin/i);
+    expect(result.errors?.[0]?.message).toMatch(/restricted/i);
   });
 
   it("returns a clean userError for a username that doesn't exist", async () => {
@@ -172,12 +205,55 @@ describe("addRoomMember", () => {
       /already a member/i,
     );
   });
+
+  it("broadcasts room_members_changed to others already viewing the room", async () => {
+    const [alice, , carol] = await registerUsers(ctx.server.baseUrl, [
+      "alice",
+      "bob",
+      "carol",
+    ]);
+    const room = await createRoom(
+      ctx.server.baseUrl,
+      alice,
+      "leadership",
+      true,
+    );
+    await addRoomMember(ctx.server.baseUrl, alice, room.id, "carol");
+    const carolSocket = await connectSocket(ctx.server.wsUrl, carol.cookies);
+    await joinRoomOverSocket(carolSocket, room.id);
+
+    await addRoomMember(ctx.server.baseUrl, alice, room.id, "bob");
+
+    const notice = await carolSocket.waitFor(
+      (m) => m.type === "room_members_changed",
+    );
+    expect(notice).toEqual({ type: "room_members_changed", roomId: room.id });
+  });
+
+  it("notifies the added user's own socket via added_to_room, even with no room open", async () => {
+    const [alice, bob] = await registerUsers(ctx.server.baseUrl, [
+      "alice",
+      "bob",
+    ]);
+    const room = await createRoom(
+      ctx.server.baseUrl,
+      alice,
+      "leadership",
+      true,
+    );
+    const bobSocket = await connectSocket(ctx.server.wsUrl, bob.cookies);
+
+    await addRoomMember(ctx.server.baseUrl, alice, room.id, "bob");
+
+    const notice = await bobSocket.waitFor((m) => m.type === "added_to_room");
+    expect(notice).toEqual({ type: "added_to_room", roomId: room.id });
+  });
 });
 
 describe("removeRoomMember", () => {
   const ctx = setupIntegrationTest();
 
-  it("lets the room owner remove a member", async () => {
+  it("rejects a room owner who isn't a global admin", async () => {
     const [alice, bob] = await registerUsers(ctx.server.baseUrl, [
       "alice",
       "bob",
@@ -190,19 +266,14 @@ describe("removeRoomMember", () => {
     );
     await addRoomMember(ctx.server.baseUrl, alice, room.id, "bob");
 
-    await removeRoomMember(ctx.server.baseUrl, alice, room.id, bob.id);
-
-    const result = await graphqlRequest<{
-      roomMembers: { user: { username: string } }[];
-    }>(
+    const result = await graphqlRequest(
       ctx.server.baseUrl,
-      ROOM_MEMBERS_QUERY,
-      { roomId: room.id },
+      REMOVE_ROOM_MEMBER_MUTATION,
+      { roomId: room.id, userId: bob.id },
       alice.cookies,
     );
-    expect(result.data?.roomMembers.map((m) => m.user.username)).not.toContain(
-      "bob",
-    );
+
+    expect(result.errors?.[0]?.message).toMatch(/admin/i);
   });
 
   it("lets a global admin remove a member from a room they don't own", async () => {
@@ -235,7 +306,7 @@ describe("removeRoomMember", () => {
     );
   });
 
-  it("rejects a caller who is neither the room owner nor an admin", async () => {
+  it("rejects a non-owner, non-admin member", async () => {
     const [alice, bob, carol] = await registerUsers(ctx.server.baseUrl, [
       "alice",
       "bob",
@@ -257,7 +328,7 @@ describe("removeRoomMember", () => {
       bob.cookies,
     );
 
-    expect(result.errors?.[0]?.message).toMatch(/owner or an admin/i);
+    expect(result.errors?.[0]?.message).toMatch(/admin/i);
   });
 
   it("blocks removing the room's owner", async () => {
@@ -296,6 +367,7 @@ describe("removeRoomMember", () => {
       "alice",
       "bob",
     ]);
+    await promoteToAdmin(alice.id);
     const room = await createRoom(
       ctx.server.baseUrl,
       alice,
@@ -327,6 +399,7 @@ describe("removeRoomMember", () => {
       "leadership",
       true,
     );
+    await promoteToAdmin(alice.id);
 
     await removeRoomMember(ctx.server.baseUrl, alice, room.id, bob.id);
 
@@ -352,9 +425,59 @@ describe("removeRoomMember", () => {
       true,
     );
     await addRoomMember(ctx.server.baseUrl, alice, room.id, "bob");
+    await promoteToAdmin(alice.id);
 
     await expect(
       removeRoomMember(ctx.server.baseUrl, alice, room.id, bob.id),
     ).resolves.toBeUndefined();
+  });
+
+  it("broadcasts room_members_changed to others still viewing the room", async () => {
+    const [alice, bob, carol] = await registerUsers(ctx.server.baseUrl, [
+      "alice",
+      "bob",
+      "carol",
+    ]);
+    const room = await createRoom(
+      ctx.server.baseUrl,
+      alice,
+      "leadership",
+      true,
+    );
+    await addRoomMember(ctx.server.baseUrl, alice, room.id, "bob");
+    await addRoomMember(ctx.server.baseUrl, alice, room.id, "carol");
+    await promoteToAdmin(alice.id);
+    const carolSocket = await connectSocket(ctx.server.wsUrl, carol.cookies);
+    await joinRoomOverSocket(carolSocket, room.id);
+
+    await removeRoomMember(ctx.server.baseUrl, alice, room.id, bob.id);
+
+    const notice = await carolSocket.waitFor(
+      (m) => m.type === "room_members_changed",
+    );
+    expect(notice).toEqual({ type: "room_members_changed", roomId: room.id });
+  });
+
+  it("notifies the removed user's socket even when it isn't joined to that room", async () => {
+    const [alice, bob] = await registerUsers(ctx.server.baseUrl, [
+      "alice",
+      "bob",
+    ]);
+    const room = await createRoom(
+      ctx.server.baseUrl,
+      alice,
+      "leadership",
+      true,
+    );
+    await addRoomMember(ctx.server.baseUrl, alice, room.id, "bob");
+    await promoteToAdmin(alice.id);
+    const bobSocket = await connectSocket(ctx.server.wsUrl, bob.cookies);
+
+    await removeRoomMember(ctx.server.baseUrl, alice, room.id, bob.id);
+
+    const notice = await bobSocket.waitFor(
+      (m) => m.type === "removed_from_room",
+    );
+    expect(notice).toEqual({ type: "removed_from_room", roomId: room.id });
   });
 });

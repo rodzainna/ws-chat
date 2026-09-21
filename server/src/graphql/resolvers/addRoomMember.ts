@@ -7,10 +7,11 @@ import {
 } from "../../db/rooms.js";
 import { findUserByUsername } from "../../db/users.js";
 import { isUniqueConstraintViolation } from "../../db/prismaErrors.js";
+import { sendServerMessage, type ServerMessage } from "../../ws/messages.js";
 import type { GraphQLContext } from "../context.js";
 import type { GraphQLUserError } from "../userErrors.js";
 import {
-  isRoomOwnerOrAdmin,
+  canAddRoomMembers,
   ROOM_NOT_FOUND,
   type RoomMutationPayload,
 } from "./roomErrors.js";
@@ -32,19 +33,18 @@ export async function addRoomMember(
 ): Promise<RoomMutationPayload> {
   const user = await requireActiveUser(context);
 
+  if (!canAddRoomMembers(user)) {
+    throw new GraphQLError("Restricted users cannot add room members", {
+      extensions: { code: "FORBIDDEN" },
+    });
+  }
+
   const [room, targetUser] = await Promise.all([
     findActiveRoomById(roomId),
     findUserByUsername(username),
   ]);
   if (!room) {
     return { room: null, userErrors: [ROOM_NOT_FOUND] };
-  }
-
-  const callerMembership = await findMembership(roomId, user.id);
-  if (!isRoomOwnerOrAdmin(callerMembership, user)) {
-    throw new GraphQLError("Only the room owner or an admin can add members", {
-      extensions: { code: "FORBIDDEN" },
-    });
   }
 
   if (!targetUser || !targetUser.isActive) {
@@ -63,6 +63,18 @@ export async function addRoomMember(
       return { room: null, userErrors: [ALREADY_MEMBER] };
     }
     throw err;
+  }
+
+  context.roomRegistry.broadcast(
+    roomId,
+    JSON.stringify({
+      type: "room_members_changed",
+      roomId,
+    } satisfies ServerMessage),
+  );
+
+  for (const socket of context.connectionRegistry.getSockets(targetUser.id)) {
+    sendServerMessage(socket, { type: "added_to_room", roomId });
   }
 
   return { room, userErrors: [] };

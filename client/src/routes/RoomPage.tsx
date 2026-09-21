@@ -429,6 +429,9 @@ export function RoomPage() {
           ),
         );
       },
+      onMembersChanged: () => {
+        void refetchMembers();
+      },
       onError: (code, message) => {
         if (code === "RATE_LIMITED") {
           toast.warning(message);
@@ -547,11 +550,8 @@ export function RoomPage() {
     }
   }
 
-  const isRoomOwner = members.some(
-    (member) => member.user.id === user?.id && member.role === "OWNER",
-  );
-  const canAddMembers =
-    !!membersData && (isRoomOwner || user?.globalRole === "ADMIN");
+  const canAddMembers = !!membersData && user?.globalRole !== "RESTRICTED";
+  const canRemoveMembers = !!membersData && user?.globalRole === "ADMIN";
 
   function handleAddMemberUsernameChange(event: ChangeEvent<HTMLInputElement>) {
     setAddMemberUsername(event.target.value);
@@ -683,7 +683,7 @@ export function RoomPage() {
                       Owner
                     </Badge>
                   )}
-                  {canAddMembers && member.role !== "OWNER" && (
+                  {canRemoveMembers && member.role !== "OWNER" && (
                     <Button
                       variant="ghost"
                       size="sm"

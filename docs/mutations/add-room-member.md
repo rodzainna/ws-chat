@@ -26,9 +26,9 @@ Note the target is identified by `username` here, but by `userId` in the sibling
 
 ## Auth
 
-Caller must be this room's owner or a global admin.
+A global-role gate, not a room-scoped one: any logged-in user whose `globalRole` is `ADMIN` or `USER` can add someone to **any** room, including one they don't own or belong to themselves. Adding is deliberately the permissive direction — removing (below) is the one that stays admin-only.
 
-**Throws:** `FORBIDDEN` — `"Only the room owner or an admin can add members"`.
+**Throws:** `FORBIDDEN` — `"Restricted users cannot add room members"`.
 
 ## userErrors
 
@@ -67,6 +67,13 @@ Success:
   "data": { "addRoomMember": { "room": { "id": "01J...R" }, "userErrors": [] } }
 }
 ```
+
+## Live effects
+
+On success, two WebSocket events go out (see [WebSocket protocol](../websocket-protocol.md)):
+
+- **`room_members_changed`** — broadcast to everyone currently viewing this room, so an already-open member list picks up the new member without a manual refresh.
+- **`added_to_room`** — sent directly to the added user's own socket(s), wherever they are in the app (room list, a different room, nothing open at all). This is what tells their room sidebar a new room just became visible to them.
 
 ## Notes
 

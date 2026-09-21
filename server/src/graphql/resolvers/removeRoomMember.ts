@@ -6,14 +6,10 @@ import {
   removeMember,
 } from "../../db/rooms.js";
 import { isRecordNotFoundError } from "../../db/prismaErrors.js";
-import { sendServerMessage } from "../../ws/messages.js";
+import { sendServerMessage, type ServerMessage } from "../../ws/messages.js";
 import type { GraphQLContext } from "../context.js";
 import type { GraphQLUserError } from "../userErrors.js";
-import {
-  isRoomOwnerOrAdmin,
-  ROOM_NOT_FOUND,
-  type RoomMutationPayload,
-} from "./roomErrors.js";
+import { ROOM_NOT_FOUND, type RoomMutationPayload } from "./roomErrors.js";
 
 const MEMBER_NOT_FOUND: GraphQLUserError = {
   field: ["userId"],
@@ -32,17 +28,15 @@ export async function removeRoomMember(
 ): Promise<RoomMutationPayload> {
   const user = await requireActiveUser(context);
 
+  if (user.globalRole !== "ADMIN") {
+    throw new GraphQLError("Only an admin can remove room members", {
+      extensions: { code: "FORBIDDEN" },
+    });
+  }
+
   const room = await findActiveRoomById(roomId);
   if (!room) {
     return { room: null, userErrors: [ROOM_NOT_FOUND] };
-  }
-
-  const callerMembership = await findMembership(roomId, user.id);
-  if (!isRoomOwnerOrAdmin(callerMembership, user)) {
-    throw new GraphQLError(
-      "Only the room owner or an admin can remove members",
-      { extensions: { code: "FORBIDDEN" } },
-    );
   }
 
   const targetMembership = await findMembership(roomId, userId);
@@ -62,9 +56,19 @@ export async function removeRoomMember(
     throw err;
   }
 
+  context.roomRegistry.broadcast(
+    roomId,
+    JSON.stringify({
+      type: "room_members_changed",
+      roomId,
+    } satisfies ServerMessage),
+  );
+
+  // notify all of the user's sockets so their sidebar updates, and evict
+  // the joined ones: sockets trust the registry, not the DB
   for (const socket of context.connectionRegistry.getSockets(userId)) {
+    sendServerMessage(socket, { type: "removed_from_room", roomId });
     if (context.roomRegistry.isMember(socket, roomId)) {
-      sendServerMessage(socket, { type: "removed_from_room", roomId });
       context.roomRegistry.leave(socket, roomId);
     }
   }

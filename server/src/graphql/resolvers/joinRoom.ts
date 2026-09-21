@@ -17,7 +17,7 @@ const ALREADY_MEMBER: GraphQLUserError = {
 
 const PRIVATE_ROOM: GraphQLUserError = {
   field: ["roomId"],
-  message: "This room is private — ask an owner or admin to add you",
+  message: "This room is private — ask a member or admin to add you",
 };
 
 export async function joinRoom(
