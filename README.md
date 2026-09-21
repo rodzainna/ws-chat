@@ -140,5 +140,5 @@ CI runs all of the above (plus a production build) on every push and pull reques
 - Single-instance only: rate limiting and WebSocket room state are in-memory; a multi-instance deployment would need Redis pub/sub for both
 - No read receipts, typing indicators, password reset, or email verification
 - No auto-reassignment of room ownership if a room's owner is deactivated
-- No auto-reconnect after an unexpected WebSocket drop — a dead connection shows "Connection lost, reload the page" rather than retrying silently. Doing it properly (backoff, re-joining every previously open room, reconciling any messages missed during the outage) is out of scope beyond what's already there: a deliberate reconnect on token refresh, which swaps sockets before the old one closes
+- Unexpected WebSocket disconnects require a page reload to reconnect; automatic retry, room re-subscription, and missed-message reconciliation are not implemented. Normal token refresh remains seamless through a make-before-break socket swap.
 - Free-tier hosting isn't always-on: Render spins down after 15 minutes idle, Supabase pauses after 7 days idle — both cold-start on the next request

@@ -61,6 +61,7 @@ model RoomMember {
   user User @relation(fields: [userId], references: [id], onDelete: Restrict)
 
   @@id([roomId, userId])
+  @@index([userId])
   @@map("room_members")
 }
 
