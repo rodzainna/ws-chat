@@ -188,7 +188,10 @@ export function AdminRoomsSection() {
                   </AlertDialogTrigger>
                   <AlertDialogContent>
                     <AlertDialogHeader>
-                      <AlertDialogTitle>Delete #{r.name}?</AlertDialogTitle>
+                      <AlertDialogTitle>
+                        Delete{" "}
+                        <RoomLabel isPrivate={r.isPrivate} name={r.name} />?
+                      </AlertDialogTitle>
                       <AlertDialogDescription>
                         Members will be disconnected and it disappears from
                         everyone's room list. This can't be undone from here.
