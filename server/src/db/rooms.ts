@@ -65,6 +65,15 @@ export function addMember(roomId: string, userId: string): Promise<RoomMember> {
   });
 }
 
+export function removeMember(
+  roomId: string,
+  userId: string,
+): Promise<RoomMember> {
+  return getPrisma().roomMember.delete({
+    where: { roomId_userId: { roomId, userId } },
+  });
+}
+
 export async function findRoomMembersByUsernames(
   roomId: string,
   usernames: string[],

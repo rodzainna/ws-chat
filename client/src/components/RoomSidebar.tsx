@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { NavLink, useMatches, useNavigate } from "react-router";
 import { gql, useMutation, useQuery } from "@apollo/client";
-import { ChevronRightIcon } from "lucide-react";
+import { ChevronRightIcon, LockIcon } from "lucide-react";
 import { ROOMS_QUERY } from "@/graphql/queries";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -229,7 +229,14 @@ export function RoomSidebar({
                   )
                 }
               >
-                <span className="min-w-0 flex-1 truncate"># {room.name}</span>
+                <span className="min-w-0 flex-1 truncate">
+                  {room.isPrivate ? (
+                    <LockIcon className="inline size-3 align-middle" />
+                  ) : (
+                    "#"
+                  )}{" "}
+                  {room.name}
+                </span>
                 <span className="flex shrink-0 items-center gap-1">
                   {room.isPrivate && <Badge variant="secondary">Private</Badge>}
                   {roomActivity && (
@@ -284,7 +291,12 @@ export function RoomSidebar({
                       className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-muted-foreground"
                     >
                       <span className="min-w-0 flex-1 truncate">
-                        # {room.name}
+                        {room.isPrivate ? (
+                          <LockIcon className="inline size-3 align-middle" />
+                        ) : (
+                          "#"
+                        )}{" "}
+                        {room.name}
                       </span>
                       <Button
                         size="sm"

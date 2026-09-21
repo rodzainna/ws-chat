@@ -153,6 +153,11 @@ export const typeDefs = `#graphql
     userErrors: [UserError!]!
   }
 
+  type RemoveRoomMemberPayload {
+    room: Room
+    userErrors: [UserError!]!
+  }
+
   type DeleteRoomPayload {
     room: Room
     userErrors: [UserError!]!
@@ -196,6 +201,7 @@ export const typeDefs = `#graphql
     createRoom(input: CreateRoomInput!): CreateRoomPayload!
     joinRoom(roomId: ID!): JoinRoomPayload!
     addRoomMember(roomId: ID!, username: String!): AddRoomMemberPayload!
+    removeRoomMember(roomId: ID!, userId: ID!): RemoveRoomMemberPayload!
     deleteRoom(roomId: ID!): DeleteRoomPayload!
     deleteMessage(messageId: ID!): DeleteMessagePayload!
     setGlobalRole(userId: ID!, role: GlobalRole!): SetGlobalRolePayload!

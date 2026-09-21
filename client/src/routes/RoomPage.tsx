@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { useParams } from "react-router";
 import { gql, useMutation, useQuery } from "@apollo/client";
 import { toast } from "sonner";
-import { Loader2Icon } from "lucide-react";
+import { Loader2Icon, LockIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -76,6 +76,34 @@ const ROOM_MEMBERS_QUERY = gql`
   }
 `;
 
+const ADD_ROOM_MEMBER_MUTATION = gql`
+  mutation AddRoomMember($roomId: ID!, $username: String!) {
+    addRoomMember(roomId: $roomId, username: $username) {
+      room {
+        id
+      }
+      userErrors {
+        field
+        message
+      }
+    }
+  }
+`;
+
+const REMOVE_ROOM_MEMBER_MUTATION = gql`
+  mutation RemoveRoomMember($roomId: ID!, $userId: ID!) {
+    removeRoomMember(roomId: $roomId, userId: $userId) {
+      room {
+        id
+      }
+      userErrors {
+        field
+        message
+      }
+    }
+  }
+`;
+
 const ROOM_MESSAGES_QUERY = gql`
   query RoomMessages($roomId: ID!) {
     messages(roomId: $roomId, first: 50) {
@@ -145,10 +173,9 @@ export function RoomPage() {
   const { user } = useAuth();
   const { data: roomsData } = useQuery<{ rooms: Room[] }>(ROOMS_QUERY);
   const room = roomsData?.rooms.find((r) => r.id === roomId);
-  const { data: membersData } = useQuery<{ roomMembers: RoomMemberRow[] }>(
-    ROOM_MEMBERS_QUERY,
-    { variables: { roomId }, skip: !roomId },
-  );
+  const { data: membersData, refetch: refetchMembers } = useQuery<{
+    roomMembers: RoomMemberRow[];
+  }>(ROOM_MEMBERS_QUERY, { variables: { roomId }, skip: !roomId });
   const [members, setMembers] = useState<RoomMemberRow[]>([]);
   useEffect(() => {
     if (!membersData) return;
@@ -165,6 +192,13 @@ export function RoomPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState("");
   const [socketError, setSocketError] = useState<string | null>(null);
+  const [addMemberOpen, setAddMemberOpen] = useState(false);
+  const [addMemberUsername, setAddMemberUsername] = useState("");
+  const [addMemberError, setAddMemberError] = useState<string | null>(null);
+  const [removingMemberId, setRemovingMemberId] = useState<string | null>(null);
+  const [removeMemberError, setRemoveMemberError] = useState<string | null>(
+    null,
+  );
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [deletePending, setDeletePending] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -183,6 +217,26 @@ export function RoomPage() {
     },
     { messageId: string }
   >(ADMIN_DELETE_MESSAGE_MUTATION);
+
+  const [addRoomMember, { loading: addingMember }] = useMutation<
+    {
+      addRoomMember: {
+        room: { id: string } | null;
+        userErrors: { field: string[]; message: string }[];
+      };
+    },
+    { roomId: string; username: string }
+  >(ADD_ROOM_MEMBER_MUTATION);
+
+  const [removeRoomMember] = useMutation<
+    {
+      removeRoomMember: {
+        room: { id: string } | null;
+        userErrors: { field: string[]; message: string }[];
+      };
+    },
+    { roomId: string; userId: string }
+  >(REMOVE_ROOM_MEMBER_MUTATION);
 
   const { data, loading } = useQuery<{
     messages: {
@@ -352,13 +406,60 @@ export function RoomPage() {
     }
   }
 
+  const isRoomOwner = members.some(
+    (member) => member.user.id === user?.id && member.role === "OWNER",
+  );
+  const canAddMembers = isRoomOwner || user?.globalRole === "ADMIN";
+
+  async function handleAddMember(event: FormEvent) {
+    event.preventDefault();
+    if (!roomId || !addMemberUsername.trim()) return;
+    setAddMemberError(null);
+    const result = await addRoomMember({
+      variables: { roomId, username: addMemberUsername.trim() },
+    });
+    const payload = result.data?.addRoomMember;
+    if (!payload?.room) {
+      setAddMemberError(
+        payload?.userErrors[0]?.message ?? "Could not add member",
+      );
+      return;
+    }
+    setAddMemberUsername("");
+    setAddMemberOpen(false);
+    await refetchMembers();
+  }
+
+  async function handleRemoveMember(memberUserId: string) {
+    if (!roomId) return;
+    setRemoveMemberError(null);
+    setRemovingMemberId(memberUserId);
+    const result = await removeRoomMember({
+      variables: { roomId, userId: memberUserId },
+    });
+    const payload = result.data?.removeRoomMember;
+    setRemovingMemberId(null);
+    if (!payload?.room) {
+      setRemoveMemberError(
+        payload?.userErrors[0]?.message ?? "Could not remove member",
+      );
+      return;
+    }
+    await refetchMembers();
+  }
+
   if (!roomId) return null;
 
   return (
     <div className="flex h-full flex-1 flex-col overflow-hidden">
       <div className="flex h-12 items-center gap-2 border-b px-4">
         <span className="min-w-0 flex-1 truncate font-medium">
-          # {room?.name ?? "…"}
+          {room?.isPrivate ? (
+            <LockIcon className="inline size-3 align-middle" />
+          ) : (
+            "#"
+          )}{" "}
+          {room?.name ?? "…"}
         </span>
         {room?.isPrivate && (
           <Badge variant="secondary" className="shrink-0">
@@ -376,7 +477,14 @@ export function RoomPage() {
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle># {room?.name ?? "…"} members</DialogTitle>
+              <DialogTitle>
+                {room?.isPrivate ? (
+                  <LockIcon className="inline size-3 align-middle" />
+                ) : (
+                  "#"
+                )}{" "}
+                {room?.name ?? "…"} members
+              </DialogTitle>
             </DialogHeader>
             <ul className="space-y-2">
               {members.map((member) => (
@@ -395,9 +503,73 @@ export function RoomPage() {
                       Owner
                     </Badge>
                   )}
+                  {canAddMembers && member.role !== "OWNER" && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="ml-auto h-auto px-2 py-0.5 text-xs text-destructive"
+                      disabled={removingMemberId === member.user.id}
+                      onClick={() => void handleRemoveMember(member.user.id)}
+                    >
+                      {removingMemberId === member.user.id
+                        ? "Removing…"
+                        : "Remove"}
+                    </Button>
+                  )}
                 </li>
               ))}
             </ul>
+            {removeMemberError && (
+              <p className="text-sm text-destructive">{removeMemberError}</p>
+            )}
+            {canAddMembers && (
+              <div className="border-t pt-3">
+                {addMemberOpen ? (
+                  <form
+                    onSubmit={(event) => void handleAddMember(event)}
+                    className="flex items-center gap-2"
+                  >
+                    <Input
+                      autoFocus
+                      placeholder="Username"
+                      value={addMemberUsername}
+                      onChange={(event) =>
+                        setAddMemberUsername(event.target.value)
+                      }
+                    />
+                    <Button type="submit" size="sm" disabled={addingMember}>
+                      Add
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setAddMemberOpen(false);
+                        setAddMemberUsername("");
+                        setAddMemberError(null);
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                  </form>
+                ) : (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                    onClick={() => setAddMemberOpen(true)}
+                  >
+                    Add people
+                  </Button>
+                )}
+                {addMemberError && (
+                  <p className="mt-2 text-sm text-destructive">
+                    {addMemberError}
+                  </p>
+                )}
+              </div>
+            )}
           </DialogContent>
         </Dialog>
       </div>
