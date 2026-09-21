@@ -36,18 +36,19 @@ export function findMessageById(id: string): Promise<Message | null> {
   return getPrisma().message.findUnique({ where: { id } });
 }
 
-export function findMessagesPage(input: {
+export async function findMessagesPage(input: {
   roomId: string;
   take: number;
-  afterId?: string;
+  beforeId?: string;
 }): Promise<MessageWithAuthor[]> {
-  return getPrisma().message.findMany({
+  const rows = await getPrisma().message.findMany({
     where: { roomId: input.roomId },
-    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     take: input.take,
     include: AUTHOR_AND_MENTIONS_INCLUDE,
-    ...(input.afterId ? { cursor: { id: input.afterId }, skip: 1 } : {}),
+    ...(input.beforeId ? { cursor: { id: input.beforeId }, skip: 1 } : {}),
   });
+  return rows.reverse();
 }
 
 // deletedAt: null in the WHERE closes the race with a concurrent delete, and

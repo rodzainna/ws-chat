@@ -29,9 +29,11 @@ The rule of thumb: if a well-behaved client could hit this by doing something a 
 
 ## Pagination
 
-Every paginated query ([`messages`](./queries/messages.md), [`users`](./queries/users.md), [`adminRooms`](./queries/admin-rooms.md)) uses Relay-style cursor pagination — `edges { cursor, node }` + `pageInfo { hasNextPage, endCursor }` — instead of offset-based paging. The reason is concurrency: rows can be inserted while someone is actively paging (new messages arrive live; new users register), and an offset page (`OFFSET n LIMIT m`) can skip or repeat rows when that happens. A cursor anchored to a specific row's position can't.
+Every paginated query ([`messages`](./queries/messages.md), [`users`](./queries/users.md), [`adminRooms`](./queries/admin-rooms.md)) uses Relay-style cursor pagination — `edges { cursor, node }` + `pageInfo` — instead of offset-based paging. The reason is concurrency: rows can be inserted while someone is actively paging (new messages arrive live; new users register), and an offset page (`OFFSET n LIMIT m`) can skip or repeat rows when that happens. A cursor anchored to a specific row's position can't.
 
-`first` is always optional with a sane default, and always **server-capped** regardless of what the client asks for — see each query's own page for its exact numbers.
+The page-size argument is always optional with a sane default, and always **server-capped** regardless of what the client asks for — see each query's own page for its exact numbers.
+
+Direction differs by query, not by a single shared convention: `users`/`adminRooms` paginate forward only (`first`/`after`, `pageInfo.hasNextPage`/`endCursor`) — an admin screen walking a list top to bottom. `messages` paginates backward only (`last`/`before`, `pageInfo.hasPreviousPage`/`startCursor`) — a chat view that loads the latest page first and walks toward older history as the viewer scrolls up. `PageInfo` carries all four fields regardless of which direction a given connection actually supports (real Relay Connections do this too) — the unsupported half is just always `false`/`null` for that query.
 
 ## Types worth knowing
 

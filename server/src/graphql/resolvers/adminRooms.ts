@@ -45,6 +45,8 @@ export async function adminRooms(
       hasNextPage,
       endCursor:
         page.length > 0 ? encodeCursor(page[page.length - 1].id) : null,
+      hasPreviousPage: false,
+      startCursor: null,
     },
     totalCount,
   };

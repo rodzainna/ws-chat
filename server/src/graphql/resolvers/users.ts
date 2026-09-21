@@ -10,7 +10,12 @@ const MAX_PAGE_SIZE = 50;
 
 type UserConnection = {
   edges: { cursor: string; node: User }[];
-  pageInfo: { hasNextPage: boolean; endCursor: string | null };
+  pageInfo: {
+    hasNextPage: boolean;
+    endCursor: string | null;
+    hasPreviousPage: boolean;
+    startCursor: string | null;
+  };
   totalCount: number;
 };
 
@@ -49,6 +54,8 @@ export async function users(
       hasNextPage,
       endCursor:
         page.length > 0 ? encodeCursor(page[page.length - 1].id) : null,
+      hasPreviousPage: false,
+      startCursor: null,
     },
     totalCount,
   };

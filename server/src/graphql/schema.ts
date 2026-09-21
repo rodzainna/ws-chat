@@ -66,6 +66,8 @@ export const typeDefs = `#graphql
   type PageInfo {
     hasNextPage: Boolean!
     endCursor: String
+    hasPreviousPage: Boolean!
+    startCursor: String
   }
 
   type MessageConnection {
@@ -189,7 +191,7 @@ export const typeDefs = `#graphql
     rooms: [Room!]!
     roomMembers(roomId: ID!): [RoomMember!]!
     roomMembershipCandidates(roomId: ID!): [RoomMemberUser!]!
-    messages(roomId: ID!, first: Int, after: String): MessageConnection!
+    messages(roomId: ID!, last: Int, before: String): MessageConnection!
     users(first: Int, after: String): UserConnection!
     adminRooms(first: Int, after: String): RoomConnection!
   }
