@@ -65,6 +65,15 @@ export function addMember(roomId: string, userId: string): Promise<RoomMember> {
   });
 }
 
+export function removeMember(
+  roomId: string,
+  userId: string,
+): Promise<RoomMember> {
+  return getPrisma().roomMember.delete({
+    where: { roomId_userId: { roomId, userId } },
+  });
+}
+
 export async function findRoomMembersByUsernames(
   roomId: string,
   usernames: string[],
@@ -77,6 +86,16 @@ export async function findRoomMembersByUsernames(
     include: { user: true },
   });
   return members.map((m) => m.user);
+}
+
+export function findUsersNotInRoom(roomId: string): Promise<User[]> {
+  return getPrisma().user.findMany({
+    where: {
+      isActive: true,
+      roomMembers: { none: { roomId } },
+    },
+    orderBy: { username: "asc" },
+  });
 }
 
 export async function findRoomMembers(

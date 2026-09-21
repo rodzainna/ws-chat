@@ -6,6 +6,7 @@ import { refresh } from "./resolvers/refresh.js";
 import { createRoom } from "./resolvers/createRoom.js";
 import { joinRoom } from "./resolvers/joinRoom.js";
 import { addRoomMember } from "./resolvers/addRoomMember.js";
+import { removeRoomMember } from "./resolvers/removeRoomMember.js";
 import { deleteRoom } from "./resolvers/deleteRoom.js";
 import { deleteMessage } from "./resolvers/deleteMessage.js";
 import { setGlobalRole } from "./resolvers/setGlobalRole.js";
@@ -15,6 +16,7 @@ import { messages } from "./resolvers/messages.js";
 import { users } from "./resolvers/users.js";
 import { rooms } from "./resolvers/rooms.js";
 import { roomMembers } from "./resolvers/roomMembers.js";
+import { roomMembershipCandidates } from "./resolvers/roomMembershipCandidates.js";
 import { adminRooms } from "./resolvers/adminRooms.js";
 import { me } from "./resolvers/me.js";
 import { accessTokenExpiresAt } from "./resolvers/accessTokenExpiresAt.js";
@@ -27,6 +29,7 @@ export const resolvers = {
     accessTokenExpiresAt,
     rooms,
     roomMembers,
+    roomMembershipCandidates,
     messages,
     users,
     adminRooms,
@@ -39,6 +42,7 @@ export const resolvers = {
     createRoom,
     joinRoom,
     addRoomMember,
+    removeRoomMember,
     deleteRoom,
     deleteMessage,
     setGlobalRole,

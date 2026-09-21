@@ -6,7 +6,11 @@ import {
   softDeleteRoom,
 } from "../../db/rooms.js";
 import type { GraphQLContext } from "../context.js";
-import { ROOM_NOT_FOUND, type RoomMutationPayload } from "./roomErrors.js";
+import {
+  isRoomOwnerOrAdmin,
+  ROOM_NOT_FOUND,
+  type RoomMutationPayload,
+} from "./roomErrors.js";
 import type { ServerMessage } from "../../ws/messages.js";
 
 export async function deleteRoom(
@@ -24,8 +28,7 @@ export async function deleteRoom(
     return { room: null, userErrors: [ROOM_NOT_FOUND] };
   }
 
-  const isOwner = membership?.role === "OWNER";
-  if (!isOwner && user.globalRole !== "ADMIN") {
+  if (!isRoomOwnerOrAdmin(membership, user)) {
     throw new GraphQLError(
       "Only the room owner or an admin can delete this room",
       { extensions: { code: "FORBIDDEN" } },

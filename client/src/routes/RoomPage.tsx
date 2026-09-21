@@ -1,9 +1,18 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type FormEvent,
+  type KeyboardEvent,
+} from "react";
 import { useParams } from "react-router";
 import { gql, useMutation, useQuery } from "@apollo/client";
 import { toast } from "sonner";
 import { Loader2Icon } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { RoomLabel } from "@/components/RoomLabel";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
@@ -29,6 +38,7 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/auth/useAuth";
 import { useChatSocket, type WsChatMessage } from "@/ws/useChatSocket";
 import { ROOMS_QUERY } from "@/graphql/queries";
+import { useSuggestionNavigation } from "@/hooks/useSuggestionNavigation";
 
 type Room = { id: string; name: string; isPrivate: boolean };
 
@@ -72,6 +82,43 @@ const ROOM_MEMBERS_QUERY = gql`
       }
       role
       isOnline
+    }
+  }
+`;
+
+const ADD_ROOM_MEMBER_MUTATION = gql`
+  mutation AddRoomMember($roomId: ID!, $username: String!) {
+    addRoomMember(roomId: $roomId, username: $username) {
+      room {
+        id
+      }
+      userErrors {
+        field
+        message
+      }
+    }
+  }
+`;
+
+const REMOVE_ROOM_MEMBER_MUTATION = gql`
+  mutation RemoveRoomMember($roomId: ID!, $userId: ID!) {
+    removeRoomMember(roomId: $roomId, userId: $userId) {
+      room {
+        id
+      }
+      userErrors {
+        field
+        message
+      }
+    }
+  }
+`;
+
+const ROOM_MEMBERSHIP_CANDIDATES_QUERY = gql`
+  query RoomMembershipCandidates($roomId: ID!) {
+    roomMembershipCandidates(roomId: $roomId) {
+      id
+      username
     }
   }
 `;
@@ -140,23 +187,69 @@ function renderContentWithMentions(
   );
 }
 
+type SuggestionItem = { id: string; username: string };
+
+// shared by the @mention picker and "Add people". onMouseDown so the input's
+// onBlur doesn't close the list before the click registers.
+function UsernameSuggestions({
+  items,
+  highlightedIndex,
+  onSelect,
+  position,
+}: {
+  items: SuggestionItem[];
+  highlightedIndex: number;
+  onSelect: (item: SuggestionItem) => void;
+  position: "above" | "below";
+}) {
+  if (items.length === 0) return null;
+  return (
+    <ul
+      className={cn(
+        "absolute z-10 max-h-48 w-full overflow-y-auto rounded-md border bg-popover py-1 shadow-md",
+        position === "above" ? "bottom-full mb-1" : "top-full mt-1",
+      )}
+    >
+      {items.map((item, index) => (
+        <li
+          key={item.id}
+          onMouseDown={(event) => {
+            event.preventDefault();
+            onSelect(item);
+          }}
+          className={cn(
+            "cursor-pointer px-3 py-1.5 text-sm",
+            index === highlightedIndex ? "bg-muted" : "hover:bg-muted",
+          )}
+        >
+          {item.username}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 export function RoomPage() {
   const { roomId } = useParams<{ roomId: string }>();
   const { user } = useAuth();
   const { data: roomsData } = useQuery<{ rooms: Room[] }>(ROOMS_QUERY);
   const room = roomsData?.rooms.find((r) => r.id === roomId);
-  const { data: membersData } = useQuery<{ roomMembers: RoomMemberRow[] }>(
-    ROOM_MEMBERS_QUERY,
-    { variables: { roomId }, skip: !roomId },
-  );
+  const { data: membersData, refetch: refetchMembers } = useQuery<{
+    roomMembers: RoomMemberRow[];
+  }>(ROOM_MEMBERS_QUERY, { variables: { roomId }, skip: !roomId });
   const [members, setMembers] = useState<RoomMemberRow[]>([]);
   useEffect(() => {
     if (!membersData) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setMembers(
-      membersData.roomMembers.map((member) =>
-        member.user.id === user?.id ? { ...member, isOnline: true } : member,
-      ),
+      membersData.roomMembers
+        .map((member) =>
+          member.user.id === user?.id ? { ...member, isOnline: true } : member,
+        )
+        .sort((a, b) => {
+          if (a.role !== b.role) return a.role === "OWNER" ? -1 : 1;
+          return a.user.username.localeCompare(b.user.username);
+        }),
     );
   }, [membersData, user?.id]);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -165,6 +258,48 @@ export function RoomPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState("");
   const [socketError, setSocketError] = useState<string | null>(null);
+  const [addMemberOpen, setAddMemberOpen] = useState(false);
+  const [addMemberUsername, setAddMemberUsername] = useState("");
+  const [addMemberError, setAddMemberError] = useState<string | null>(null);
+  const [showAddSuggestions, setShowAddSuggestions] = useState(true);
+  const addMemberInputRef = useRef<HTMLInputElement>(null);
+  const [mentionQuery, setMentionQuery] = useState<string | null>(null);
+  const draftInputRef = useRef<HTMLInputElement>(null);
+  const [removingMemberIds, setRemovingMemberIds] = useState<Set<string>>(
+    new Set(),
+  );
+  const [removeMemberError, setRemoveMemberError] = useState<string | null>(
+    null,
+  );
+
+  const { data: candidatesData } = useQuery<{
+    roomMembershipCandidates: SuggestionItem[];
+  }>(ROOM_MEMBERSHIP_CANDIDATES_QUERY, {
+    variables: { roomId },
+    skip: !roomId || !addMemberOpen,
+    fetchPolicy: "network-only",
+  });
+  const addMemberCandidates = useMemo<SuggestionItem[]>(() => {
+    if (!showAddSuggestions) return [];
+    const all = candidatesData?.roomMembershipCandidates ?? [];
+    const query = addMemberUsername.trim().toLowerCase();
+    const matches = query
+      ? all.filter((c) => c.username.toLowerCase().startsWith(query))
+      : all;
+    return matches.slice(0, 8);
+  }, [candidatesData, addMemberUsername, showAddSuggestions]);
+  const addMemberNav = useSuggestionNavigation(addMemberCandidates.length);
+
+  const mentionCandidates = useMemo<SuggestionItem[]>(() => {
+    if (mentionQuery === null) return [];
+    const query = mentionQuery.toLowerCase();
+    return members
+      .filter((m) => m.user.username.toLowerCase().startsWith(query))
+      .slice(0, 5)
+      .map((m) => ({ id: m.user.id, username: m.user.username }));
+  }, [members, mentionQuery]);
+  const mentionNav = useSuggestionNavigation(mentionCandidates.length);
+
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [deletePending, setDeletePending] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -183,6 +318,26 @@ export function RoomPage() {
     },
     { messageId: string }
   >(ADMIN_DELETE_MESSAGE_MUTATION);
+
+  const [addRoomMember, { loading: addingMember }] = useMutation<
+    {
+      addRoomMember: {
+        room: { id: string } | null;
+        userErrors: { field: string[]; message: string }[];
+      };
+    },
+    { roomId: string; username: string }
+  >(ADD_ROOM_MEMBER_MUTATION);
+
+  const [removeRoomMember] = useMutation<
+    {
+      removeRoomMember: {
+        room: { id: string } | null;
+        userErrors: { field: string[]; message: string }[];
+      };
+    },
+    { roomId: string; userId: string }
+  >(REMOVE_ROOM_MEMBER_MUTATION);
 
   const { data, loading } = useQuery<{
     messages: {
@@ -311,6 +466,46 @@ export function RoomPage() {
     setDraft("");
   }
 
+  function handleDraftChange(event: ChangeEvent<HTMLInputElement>) {
+    const value = event.target.value;
+    setDraft(value);
+    const cursorPos = event.target.selectionStart ?? value.length;
+    const match = value.slice(0, cursorPos).match(/(?:^|\s)@([a-z0-9_]*)$/i);
+    mentionNav.setHighlightedIndex(0);
+    setMentionQuery(match ? match[1] : null);
+  }
+
+  function selectMention(username: string) {
+    const input = draftInputRef.current;
+    const cursorPos = input?.selectionStart ?? draft.length;
+    const before = draft
+      .slice(0, cursorPos)
+      .replace(/@[a-z0-9_]*$/i, `@${username} `);
+    const after = draft.slice(cursorPos);
+    setDraft(before + after);
+    setMentionQuery(null);
+    requestAnimationFrame(() => {
+      input?.focus();
+      input?.setSelectionRange(before.length, before.length);
+    });
+  }
+
+  function handleDraftKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    if (mentionQuery === null || mentionCandidates.length === 0) return;
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      mentionNav.moveDown();
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      mentionNav.moveUp();
+    } else if (event.key === "Enter" || event.key === "Tab") {
+      event.preventDefault();
+      selectMention(mentionCandidates[mentionNav.highlightedIndex].username);
+    } else if (event.key === "Escape") {
+      setMentionQuery(null);
+    }
+  }
+
   function startEdit(message: ChatMessage) {
     setEditingId(message.id);
     setEditDraft(message.content);
@@ -352,13 +547,100 @@ export function RoomPage() {
     }
   }
 
+  const isRoomOwner = members.some(
+    (member) => member.user.id === user?.id && member.role === "OWNER",
+  );
+  const canAddMembers =
+    !!membersData && (isRoomOwner || user?.globalRole === "ADMIN");
+
+  function handleAddMemberUsernameChange(event: ChangeEvent<HTMLInputElement>) {
+    setAddMemberUsername(event.target.value);
+    setShowAddSuggestions(true);
+    addMemberNav.setHighlightedIndex(0);
+  }
+
+  function selectAddMemberCandidate(username: string) {
+    setAddMemberUsername(username);
+    setShowAddSuggestions(false);
+    addMemberInputRef.current?.focus();
+  }
+
+  function handleAddMemberKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    if (!showAddSuggestions || addMemberCandidates.length === 0) return;
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      addMemberNav.moveDown();
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      addMemberNav.moveUp();
+    } else if (event.key === "Enter" || event.key === "Tab") {
+      event.preventDefault();
+      selectAddMemberCandidate(
+        addMemberCandidates[addMemberNav.highlightedIndex].username,
+      );
+    } else if (event.key === "Escape") {
+      setShowAddSuggestions(false);
+    }
+  }
+
+  async function handleAddMember(event: FormEvent) {
+    event.preventDefault();
+    if (!roomId || !addMemberUsername.trim()) return;
+    setAddMemberError(null);
+    const result = await addRoomMember({
+      variables: { roomId, username: addMemberUsername.trim() },
+    });
+    const payload = result.data?.addRoomMember;
+    if (!payload?.room) {
+      setAddMemberError(
+        payload?.userErrors[0]?.message ?? "Could not add member",
+      );
+      return;
+    }
+    setAddMemberUsername("");
+    setAddMemberOpen(false);
+    await refetchMembers();
+  }
+
+  async function handleRemoveMember(memberUserId: string) {
+    if (!roomId) return;
+    setRemoveMemberError(null);
+    setRemovingMemberIds((prev) => new Set(prev).add(memberUserId));
+    try {
+      const result = await removeRoomMember({
+        variables: { roomId, userId: memberUserId },
+      });
+      const payload = result.data?.removeRoomMember;
+      if (!payload?.room) {
+        setRemoveMemberError(
+          payload?.userErrors[0]?.message ?? "Could not remove member",
+        );
+        return;
+      }
+      await refetchMembers();
+    } catch {
+      setRemoveMemberError(
+        "Could not remove member — you may no longer have permission",
+      );
+    } finally {
+      setRemovingMemberIds((prev) => {
+        const next = new Set(prev);
+        next.delete(memberUserId);
+        return next;
+      });
+    }
+  }
+
   if (!roomId) return null;
 
   return (
     <div className="flex h-full flex-1 flex-col overflow-hidden">
       <div className="flex h-12 items-center gap-2 border-b px-4">
         <span className="min-w-0 flex-1 truncate font-medium">
-          # {room?.name ?? "…"}
+          <RoomLabel
+            isPrivate={room?.isPrivate ?? false}
+            name={room?.name ?? "…"}
+          />
         </span>
         {room?.isPrivate && (
           <Badge variant="secondary" className="shrink-0">
@@ -376,7 +658,13 @@ export function RoomPage() {
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle># {room?.name ?? "…"} members</DialogTitle>
+              <DialogTitle>
+                <RoomLabel
+                  isPrivate={room?.isPrivate ?? false}
+                  name={room?.name ?? "…"}
+                />{" "}
+                members
+              </DialogTitle>
             </DialogHeader>
             <ul className="space-y-2">
               {members.map((member) => (
@@ -395,19 +683,97 @@ export function RoomPage() {
                       Owner
                     </Badge>
                   )}
+                  {canAddMembers && member.role !== "OWNER" && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="ml-auto h-auto px-2 py-0.5 text-xs text-destructive"
+                      disabled={removingMemberIds.has(member.user.id)}
+                      onClick={() => void handleRemoveMember(member.user.id)}
+                    >
+                      {removingMemberIds.has(member.user.id)
+                        ? "Removing…"
+                        : "Remove"}
+                    </Button>
+                  )}
                 </li>
               ))}
             </ul>
+            {removeMemberError && (
+              <p className="text-sm text-destructive">{removeMemberError}</p>
+            )}
+            {canAddMembers && (
+              <div className="border-t pt-3">
+                {addMemberOpen ? (
+                  <form
+                    onSubmit={(event) => void handleAddMember(event)}
+                    className="flex items-center gap-2"
+                  >
+                    <div className="relative flex-1">
+                      <Input
+                        ref={addMemberInputRef}
+                        autoFocus
+                        placeholder="Username"
+                        value={addMemberUsername}
+                        onChange={handleAddMemberUsernameChange}
+                        onKeyDown={handleAddMemberKeyDown}
+                        onBlur={() => setShowAddSuggestions(false)}
+                      />
+                      <UsernameSuggestions
+                        items={addMemberCandidates}
+                        highlightedIndex={addMemberNav.highlightedIndex}
+                        onSelect={(item) =>
+                          selectAddMemberCandidate(item.username)
+                        }
+                        position="below"
+                      />
+                    </div>
+                    <Button type="submit" size="sm" disabled={addingMember}>
+                      Add
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setAddMemberOpen(false);
+                        setAddMemberUsername("");
+                        setAddMemberError(null);
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                  </form>
+                ) : (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                    onClick={() => {
+                      setAddMemberOpen(true);
+                      setShowAddSuggestions(true);
+                    }}
+                  >
+                    Add people
+                  </Button>
+                )}
+                {addMemberError && (
+                  <p className="mt-2 text-sm text-destructive">
+                    {addMemberError}
+                  </p>
+                )}
+              </div>
+            )}
           </DialogContent>
         </Dialog>
       </div>
       <ScrollArea className="flex-1 px-4">
         <div className="mx-auto max-w-full space-y-3 py-4">
           {loading && !historyLoaded && (
-            <p className="text-muted-foreground">Loading messages…</p>
+            <p className="text-sm text-muted-foreground">Loading messages…</p>
           )}
           {orderedMessages.length === 0 && historyLoaded && (
-            <p className="text-muted-foreground">
+            <p className="text-sm text-muted-foreground">
               No messages yet — say hello.
             </p>
           )}
@@ -556,13 +922,23 @@ export function RoomPage() {
       )}
 
       <form onSubmit={handleSend} className="flex gap-2 border-t p-4">
-        <Input
-          value={draft}
-          onChange={(event) => setDraft(event.target.value)}
-          placeholder="Message…"
-          maxLength={2000}
-          className="flex-1"
-        />
+        <div className="relative flex-1">
+          <Input
+            ref={draftInputRef}
+            value={draft}
+            onChange={handleDraftChange}
+            onKeyDown={handleDraftKeyDown}
+            onBlur={() => setMentionQuery(null)}
+            placeholder="Message…"
+            maxLength={2000}
+          />
+          <UsernameSuggestions
+            items={mentionCandidates}
+            highlightedIndex={mentionNav.highlightedIndex}
+            onSelect={(item) => selectMention(item.username)}
+            position="above"
+          />
+        </div>
         <Button type="submit">Send</Button>
       </form>
     </div>

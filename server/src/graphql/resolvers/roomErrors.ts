@@ -1,4 +1,8 @@
-import type { Room } from "../../generated/prisma/client.js";
+import type {
+  GlobalRole,
+  Room,
+  RoomMember,
+} from "../../generated/prisma/client.js";
 import type { GraphQLUserError } from "../userErrors.js";
 
 export type RoomMutationPayload = {
@@ -10,3 +14,10 @@ export const ROOM_NOT_FOUND: GraphQLUserError = {
   field: ["roomId"],
   message: "Room not found",
 };
+
+export function isRoomOwnerOrAdmin(
+  membership: RoomMember | null,
+  user: { globalRole: GlobalRole },
+): boolean {
+  return membership?.role === "OWNER" || user.globalRole === "ADMIN";
+}

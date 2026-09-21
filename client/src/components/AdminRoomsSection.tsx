@@ -3,6 +3,7 @@ import { gql, useApolloClient, useMutation } from "@apollo/client";
 import { Loader2Icon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { RoomLabel } from "@/components/RoomLabel";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -157,7 +158,7 @@ export function AdminRoomsSection() {
             <div key={r.id} className="flex flex-col gap-2 p-3">
               <div className="flex items-center gap-2">
                 <span className="min-w-0 flex-1 truncate font-medium">
-                  # {r.name}
+                  <RoomLabel isPrivate={r.isPrivate} name={r.name} />
                 </span>
                 {r.isPrivate && (
                   <Badge variant="secondary" className="shrink-0">
@@ -187,7 +188,10 @@ export function AdminRoomsSection() {
                   </AlertDialogTrigger>
                   <AlertDialogContent>
                     <AlertDialogHeader>
-                      <AlertDialogTitle>Delete #{r.name}?</AlertDialogTitle>
+                      <AlertDialogTitle>
+                        Delete{" "}
+                        <RoomLabel isPrivate={r.isPrivate} name={r.name} />?
+                      </AlertDialogTitle>
                       <AlertDialogDescription>
                         Members will be disconnected and it disappears from
                         everyone's room list. This can't be undone from here.

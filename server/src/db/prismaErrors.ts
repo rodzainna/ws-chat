@@ -8,6 +8,14 @@ export function isUniqueConstraintViolation(
   );
 }
 
+export function isRecordNotFoundError(
+  err: unknown,
+): err is Prisma.PrismaClientKnownRequestError {
+  return (
+    err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2025"
+  );
+}
+
 // with @prisma/adapter-pg, P2002 has no meta.target; the Postgres constraint
 // name (e.g. "users_username_key") is under meta.driverAdapterError
 export function getViolatedUniqueField(

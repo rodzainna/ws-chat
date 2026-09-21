@@ -5,6 +5,7 @@ import { ChevronRightIcon } from "lucide-react";
 import { ROOMS_QUERY } from "@/graphql/queries";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { RoomLabel } from "@/components/RoomLabel";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
@@ -229,7 +230,9 @@ export function RoomSidebar({
                   )
                 }
               >
-                <span className="min-w-0 flex-1 truncate"># {room.name}</span>
+                <span className="min-w-0 flex-1 truncate">
+                  <RoomLabel isPrivate={room.isPrivate} name={room.name} />
+                </span>
                 <span className="flex shrink-0 items-center gap-1">
                   {room.isPrivate && <Badge variant="secondary">Private</Badge>}
                   {roomActivity && (
@@ -284,7 +287,10 @@ export function RoomSidebar({
                       className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-muted-foreground"
                     >
                       <span className="min-w-0 flex-1 truncate">
-                        # {room.name}
+                        <RoomLabel
+                          isPrivate={room.isPrivate}
+                          name={room.name}
+                        />
                       </span>
                       <Button
                         size="sm"

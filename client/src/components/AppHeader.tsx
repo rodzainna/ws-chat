@@ -47,11 +47,14 @@ export function AppHeader({ onMenuClick }: { onMenuClick?: () => void }) {
       </div>
       <div className="flex items-center gap-3 text-sm">
         {user?.globalRole === "ADMIN" && (
-          <Link to="/admin" className="text-muted-foreground hover:underline">
+          <Link
+            to="/admin"
+            className="font-medium underline underline-offset-4 hover:text-foreground"
+          >
             Admin
           </Link>
         )}
-        <span className="text-muted-foreground">{user?.username}</span>
+        <span className="text-muted-foreground">@{user?.username}</span>
         <Button variant="outline" size="sm" onClick={() => void handleLogout()}>
           Log out
         </Button>

@@ -9,7 +9,11 @@ import { findUserByUsername } from "../../db/users.js";
 import { isUniqueConstraintViolation } from "../../db/prismaErrors.js";
 import type { GraphQLContext } from "../context.js";
 import type { GraphQLUserError } from "../userErrors.js";
-import { ROOM_NOT_FOUND, type RoomMutationPayload } from "./roomErrors.js";
+import {
+  isRoomOwnerOrAdmin,
+  ROOM_NOT_FOUND,
+  type RoomMutationPayload,
+} from "./roomErrors.js";
 
 const USER_NOT_FOUND: GraphQLUserError = {
   field: ["username"],
@@ -37,8 +41,7 @@ export async function addRoomMember(
   }
 
   const callerMembership = await findMembership(roomId, user.id);
-  const isOwner = callerMembership?.role === "OWNER";
-  if (!isOwner && user.globalRole !== "ADMIN") {
+  if (!isRoomOwnerOrAdmin(callerMembership, user)) {
     throw new GraphQLError("Only the room owner or an admin can add members", {
       extensions: { code: "FORBIDDEN" },
     });
