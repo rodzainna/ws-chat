@@ -10,6 +10,7 @@ import { deleteRoom } from "./resolvers/deleteRoom.js";
 import { deleteMessage } from "./resolvers/deleteMessage.js";
 import { setGlobalRole } from "./resolvers/setGlobalRole.js";
 import { deactivateUser } from "./resolvers/deactivateUser.js";
+import { reactivateUser } from "./resolvers/reactivateUser.js";
 import { messages } from "./resolvers/messages.js";
 import { users } from "./resolvers/users.js";
 import { rooms } from "./resolvers/rooms.js";
@@ -42,6 +43,7 @@ export const resolvers = {
     deleteMessage,
     setGlobalRole,
     deactivateUser,
+    reactivateUser,
   },
   Message: {
     content: (parent: MessageWithAuthor) =>

@@ -173,6 +173,11 @@ export const typeDefs = `#graphql
     userErrors: [UserError!]!
   }
 
+  type ReactivateUserPayload {
+    user: User
+    userErrors: [UserError!]!
+  }
+
   type Query {
     me: User
     accessTokenExpiresAt: DateTime
@@ -195,5 +200,6 @@ export const typeDefs = `#graphql
     deleteMessage(messageId: ID!): DeleteMessagePayload!
     setGlobalRole(userId: ID!, role: GlobalRole!): SetGlobalRolePayload!
     deactivateUser(userId: ID!): DeactivateUserPayload!
+    reactivateUser(userId: ID!): ReactivateUserPayload!
   }
 `;
