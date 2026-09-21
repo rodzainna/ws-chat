@@ -20,7 +20,9 @@ _Coming soon._
 
 ## Documentation
 
-- **[docs/api.md](docs/api.md)** — every GraphQL query and mutation: arguments, auth requirements, every `userError` with its exact message and trigger condition
+- **[docs/api.md](docs/api.md)** — GraphQL API overview: error conventions, auth model, pagination, core types
+  - **[docs/queries/](docs/queries/)** — one file per query: arguments, response shape, auth, example
+  - **[docs/mutations/](docs/mutations/)** — one file per mutation: arguments, every `userError` with its exact message and trigger condition, example
 - **[docs/websocket-protocol.md](docs/websocket-protocol.md)** — the WebSocket frame protocol in both directions, connection/auth handling, heartbeat, and reconnection behavior
 - This file — orientation, architecture, setup, and the design "whys"
 
