@@ -9,7 +9,11 @@ import { isRecordNotFoundError } from "../../db/prismaErrors.js";
 import { sendServerMessage } from "../../ws/messages.js";
 import type { GraphQLContext } from "../context.js";
 import type { GraphQLUserError } from "../userErrors.js";
-import { ROOM_NOT_FOUND, type RoomMutationPayload } from "./roomErrors.js";
+import {
+  isRoomOwnerOrAdmin,
+  ROOM_NOT_FOUND,
+  type RoomMutationPayload,
+} from "./roomErrors.js";
 
 const MEMBER_NOT_FOUND: GraphQLUserError = {
   field: ["userId"],
@@ -34,8 +38,7 @@ export async function removeRoomMember(
   }
 
   const callerMembership = await findMembership(roomId, user.id);
-  const isOwner = callerMembership?.role === "OWNER";
-  if (!isOwner && user.globalRole !== "ADMIN") {
+  if (!isRoomOwnerOrAdmin(callerMembership, user)) {
     throw new GraphQLError(
       "Only the room owner or an admin can remove members",
       { extensions: { code: "FORBIDDEN" } },
