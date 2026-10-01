@@ -1,6 +1,12 @@
 import { getPrisma } from "./prisma.js";
 import { hashToken, type IssuedRefreshToken } from "../auth/refreshToken.js";
-import type { RefreshToken } from "../generated/prisma/client.js";
+import type { Prisma, RefreshToken } from "../generated/prisma/client.js";
+
+// serializes rotation and logout for one session, so a logout can't miss a
+// token that a concurrent refresh is about to commit
+async function lockSession(tx: Prisma.TransactionClient, sessionId: string) {
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${sessionId}))`;
+}
 
 // one session per login; rotation keeps the same sessionId
 export async function createRefreshTokenRecord(
@@ -19,9 +25,12 @@ export async function createRefreshTokenRecord(
 }
 
 export async function revokeSession(sessionId: string): Promise<void> {
-  await getPrisma().refreshToken.updateMany({
-    where: { sessionId, revokedAt: null },
-    data: { revokedAt: new Date() },
+  await getPrisma().$transaction(async (tx) => {
+    await lockSession(tx, sessionId);
+    await tx.refreshToken.updateMany({
+      where: { sessionId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
   });
 }
 
@@ -38,6 +47,7 @@ export async function rotateRefreshToken(
   newToken: IssuedRefreshToken,
 ): Promise<boolean> {
   return getPrisma().$transaction(async (tx) => {
+    await lockSession(tx, oldToken.sessionId);
     const { count } = await tx.refreshToken.updateMany({
       where: { id: oldToken.id, revokedAt: null },
       data: { revokedAt: new Date() },
