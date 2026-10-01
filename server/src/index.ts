@@ -91,13 +91,14 @@ const wss = new WebSocketServer({
           callback(false, 401, "Authentication required");
           return;
         }
-        const { userId, expiresAt } = result;
+        const { userId, sessionId, expiresAt } = result;
         const user = await findActiveUserById(userId);
         if (!user) {
           callback(false, 401, "Authentication required");
           return;
         }
         (info.req as AuthenticatedRequest).userId = userId;
+        (info.req as AuthenticatedRequest).sessionId = sessionId;
         (info.req as AuthenticatedRequest).expiresAt = expiresAt;
         callback(true);
       })

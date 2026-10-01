@@ -25,15 +25,6 @@ export async function revokeSession(sessionId: string): Promise<void> {
   });
 }
 
-export async function revokeRefreshToken(
-  plaintextToken: string,
-): Promise<void> {
-  await getPrisma().refreshToken.updateMany({
-    where: { tokenHash: hashToken(plaintextToken), revokedAt: null },
-    data: { revokedAt: new Date() },
-  });
-}
-
 export function findRefreshTokenByPlaintext(
   plaintextToken: string,
 ): Promise<RefreshToken | null> {

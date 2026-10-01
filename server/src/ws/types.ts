@@ -3,6 +3,7 @@ import type { IncomingMessage } from "node:http";
 
 export type AuthenticatedRequest = IncomingMessage & {
   userId?: string;
+  sessionId?: string;
   expiresAt?: number;
 };
 

@@ -1,10 +1,11 @@
 import { clearAuthCookies, REFRESH_TOKEN_COOKIE } from "../../auth/cookies.js";
 import {
   findRefreshTokenByPlaintext,
-  revokeRefreshToken,
+  revokeSession,
 } from "../../db/refreshTokens.js";
 import type { GraphQLContext } from "../context.js";
 
+// logs out this browser only (all its tabs), not the user's other devices
 export async function logout(
   _parent: unknown,
   _args: unknown,
@@ -13,9 +14,13 @@ export async function logout(
   const refreshTokenCookie: unknown = context.req.cookies[REFRESH_TOKEN_COOKIE];
   if (typeof refreshTokenCookie === "string") {
     const row = await findRefreshTokenByPlaintext(refreshTokenCookie);
-    await revokeRefreshToken(refreshTokenCookie);
     if (row) {
-      context.connectionRegistry.disconnectUser(row.userId, "logged_out");
+      await revokeSession(row.sessionId);
+      context.connectionRegistry.disconnectSession(
+        row.userId,
+        row.sessionId,
+        "logged_out",
+      );
     }
   }
   clearAuthCookies(context.res);

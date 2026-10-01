@@ -6,10 +6,12 @@ const SWEEP_INTERVAL_MS = 10 * 60 * 1000;
 
 export class ConnectionRegistry {
   private readonly socketsByUserId = new Map<string, Set<WebSocket>>();
+  private readonly sessionBySocket = new WeakMap<WebSocket, string>();
 
-  // a handshake can pass its isActive check just before a deactivation, then
-  // register after disconnectUser() already ran; this catches it on register
-  private readonly recentlyDisconnectedUserIds = new Map<
+  // a handshake can pass its checks just before a deactivation or logout, then
+  // register after the disconnect already ran; this catches it on register.
+  // Keyed by userId or sessionId (both uuids).
+  private readonly recentDisconnects = new Map<
     string,
     { reason: SessionExpiredReason; expiresAt: number }
   >();
@@ -20,13 +22,16 @@ export class ConnectionRegistry {
     }, SWEEP_INTERVAL_MS).unref();
   }
 
-  register(userId: string, socket: WebSocket): boolean {
-    const recent = this.recentlyDisconnectedUserIds.get(userId);
+  register(userId: string, sessionId: string, socket: WebSocket): boolean {
+    const recent =
+      this.recentDisconnects.get(userId) ??
+      this.recentDisconnects.get(sessionId);
     if (recent && recent.expiresAt > Date.now()) {
       this.disconnectSocket(socket, recent.reason);
       return false;
     }
 
+    this.sessionBySocket.set(socket, sessionId);
     let sockets = this.socketsByUserId.get(userId);
     const wasOffline = !sockets || sockets.size === 0;
     if (!sockets) {
@@ -57,7 +62,7 @@ export class ConnectionRegistry {
   }
 
   disconnectUser(userId: string, reason: SessionExpiredReason): boolean {
-    this.recentlyDisconnectedUserIds.set(userId, {
+    this.recentDisconnects.set(userId, {
       reason,
       expiresAt: Date.now() + RECENT_DISCONNECT_GRACE_MS,
     });
@@ -70,6 +75,24 @@ export class ConnectionRegistry {
     return true;
   }
 
+  // every tab of one browser shares a session; other devices are untouched
+  disconnectSession(
+    userId: string,
+    sessionId: string,
+    reason: SessionExpiredReason,
+  ): void {
+    this.recentDisconnects.set(sessionId, {
+      reason,
+      expiresAt: Date.now() + RECENT_DISCONNECT_GRACE_MS,
+    });
+
+    for (const socket of this.socketsByUserId.get(userId) ?? []) {
+      if (this.sessionBySocket.get(socket) === sessionId) {
+        this.disconnectSocket(socket, reason);
+      }
+    }
+  }
+
   private disconnectSocket(
     socket: WebSocket,
     reason: SessionExpiredReason,
@@ -79,9 +102,9 @@ export class ConnectionRegistry {
   }
 
   private sweepExpiredDisconnects(now: number): void {
-    for (const [userId, entry] of this.recentlyDisconnectedUserIds) {
+    for (const [id, entry] of this.recentDisconnects) {
       if (entry.expiresAt <= now) {
-        this.recentlyDisconnectedUserIds.delete(userId);
+        this.recentDisconnects.delete(id);
       }
     }
   }
