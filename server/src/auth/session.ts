@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import type { Request, Response } from "express";
 import { issueToken } from "./jwt.js";
 import { generateRefreshToken } from "./refreshToken.js";
@@ -21,9 +22,10 @@ export async function establishSession(
   userId: string,
   res: Response,
 ): Promise<{ accessTokenExpiresAt: Date }> {
-  const { token, expiresAt } = await issueToken(userId);
+  const sessionId = randomUUID();
+  const { token, expiresAt } = await issueToken(userId, sessionId);
   const refreshToken = generateRefreshToken();
-  await createRefreshTokenRecord(userId, refreshToken);
+  await createRefreshTokenRecord(userId, sessionId, refreshToken);
   setAuthCookies(res, { accessToken: token, refreshToken });
   return { accessTokenExpiresAt: expiresAt };
 }
@@ -76,7 +78,7 @@ export async function rotateSession(
   }
 
   const { token: accessToken, expiresAt: accessTokenExpiresAt } =
-    await issueToken(user.id);
+    await issueToken(user.id, row.sessionId);
   const refreshToken = generateRefreshToken();
 
   const rotated = await rotateRefreshToken(row, refreshToken);

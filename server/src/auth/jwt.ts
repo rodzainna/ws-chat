@@ -54,9 +54,10 @@ export function getAccessTokenExpiryMs(): number {
 
 export async function issueToken(
   userId: string,
+  sessionId: string,
 ): Promise<{ token: string; expiresAt: Date }> {
   const expiresAt = new Date(Date.now() + getAccessTokenExpiryMs());
-  const token = await new SignJWT({})
+  const token = await new SignJWT({ sid: sessionId })
     .setProtectedHeader({ alg: ALGORITHM })
     .setSubject(userId)
     .setIssuedAt()
@@ -81,14 +82,19 @@ async function verifyAndDecode(token: string): Promise<JWTPayload | null> {
 
 export async function verifyToken(
   token: string,
-): Promise<{ userId: string; expiresAt: number } | null> {
+): Promise<{ userId: string; sessionId: string; expiresAt: number } | null> {
   const payload = await verifyAndDecode(token);
   if (
     !payload ||
     typeof payload.sub !== "string" ||
+    typeof payload.sid !== "string" ||
     typeof payload.exp !== "number"
   ) {
     return null;
   }
-  return { userId: payload.sub, expiresAt: payload.exp * 1000 };
+  return {
+    userId: payload.sub,
+    sessionId: payload.sid,
+    expiresAt: payload.exp * 1000,
+  };
 }

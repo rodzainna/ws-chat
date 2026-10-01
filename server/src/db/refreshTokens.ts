@@ -1,4 +1,3 @@
-import { randomUUID } from "node:crypto";
 import { getPrisma } from "./prisma.js";
 import { hashToken, type IssuedRefreshToken } from "../auth/refreshToken.js";
 import type { RefreshToken } from "../generated/prisma/client.js";
@@ -6,9 +5,9 @@ import type { RefreshToken } from "../generated/prisma/client.js";
 // one session per login; rotation keeps the same sessionId
 export async function createRefreshTokenRecord(
   userId: string,
+  sessionId: string,
   refreshToken: IssuedRefreshToken,
-): Promise<string> {
-  const sessionId = randomUUID();
+): Promise<void> {
   await getPrisma().refreshToken.create({
     data: {
       userId,
@@ -17,7 +16,6 @@ export async function createRefreshTokenRecord(
       expiresAt: refreshToken.expiresAt,
     },
   });
-  return sessionId;
 }
 
 export async function revokeSession(sessionId: string): Promise<void> {
