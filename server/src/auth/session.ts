@@ -79,7 +79,7 @@ export async function rotateSession(
     await issueToken(user.id);
   const refreshToken = generateRefreshToken();
 
-  const rotated = await rotateRefreshToken(row.id, user.id, refreshToken);
+  const rotated = await rotateRefreshToken(row, refreshToken);
   if (!rotated) {
     // lost the race to another tab; clearing cookies could wipe its new session
     return { ok: false };
