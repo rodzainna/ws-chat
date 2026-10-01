@@ -1,6 +1,6 @@
 # `logout`
 
-Ends the caller's session everywhere, not just for this request.
+Ends the current browser's session, in every tab. Other browsers and devices stay logged in.
 
 ## Definition
 
@@ -36,6 +36,6 @@ mutation Logout {
 
 ## Notes
 
-- Revokes the refresh token, clears the session cookie, **and force-disconnects every live WebSocket for that user** — not just the session tied to this particular request. Log out from one tab and every other open tab's socket gets a `session_expired` frame with reason `"logged_out"` and closes immediately.
-- The user id used for the force-disconnect comes from the **refresh token record being revoked**, not from `context.userId` off the access token — at logout time the access token has often already expired, so the refresh token is the only reliable source of "whose sockets do we disconnect."
+- Revokes every refresh token in the session, clears the cookies, and closes that session's WebSockets with a `session_expired` frame (reason `"logged_out"`).
+- The session comes from the refresh token cookie, since the access token has often expired by logout.
 - No `userErrors` — there's no well-formed failure mode for "log me out" that's worth surfacing to the client differently from success.
