@@ -80,21 +80,23 @@ async function verifyAndDecode(token: string): Promise<JWTPayload | null> {
   }
 }
 
-export async function verifyToken(
-  token: string,
-): Promise<{ userId: string; sessionId: string; expiresAt: number } | null> {
+export async function verifyToken(token: string): Promise<{
+  userId: string;
+  sessionId: string | null;
+  expiresAt: number;
+} | null> {
   const payload = await verifyAndDecode(token);
   if (
     !payload ||
     typeof payload.sub !== "string" ||
-    typeof payload.sid !== "string" ||
     typeof payload.exp !== "number"
   ) {
     return null;
   }
   return {
     userId: payload.sub,
-    sessionId: payload.sid,
+    // tokens issued before sessions existed have no sid
+    sessionId: typeof payload.sid === "string" ? payload.sid : null,
     expiresAt: payload.exp * 1000,
   };
 }

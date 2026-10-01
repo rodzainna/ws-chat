@@ -328,8 +328,12 @@ export function registerWsHandlers(
   startHeartbeat(wss);
 
   wss.on("connection", (socket: WebSocket, request: IncomingMessage) => {
-    const { userId, sessionId, expiresAt } = request as AuthenticatedRequest;
-    if (!userId || !sessionId || !expiresAt) {
+    const {
+      userId,
+      sessionId = null,
+      expiresAt,
+    } = request as AuthenticatedRequest;
+    if (!userId || !expiresAt) {
       socket.close(1008, "Authentication required");
       return;
     }

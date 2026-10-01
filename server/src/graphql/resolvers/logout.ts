@@ -11,18 +11,21 @@ export async function logout(
   _args: unknown,
   context: GraphQLContext,
 ): Promise<{ success: boolean }> {
-  const refreshTokenCookie: unknown = context.req.cookies[REFRESH_TOKEN_COOKIE];
-  if (typeof refreshTokenCookie === "string") {
-    const row = await findRefreshTokenByPlaintext(refreshTokenCookie);
-    if (row) {
-      await revokeSession(row.sessionId);
-      context.connectionRegistry.disconnectSession(
-        row.userId,
-        row.sessionId,
-        "logged_out",
-      );
-    }
+  const sessionId = await findSessionId(context);
+  if (sessionId) {
+    await revokeSession(sessionId);
+    context.connectionRegistry.disconnectSession(sessionId, "logged_out");
   }
   clearAuthCookies(context.res);
   return { success: true };
+}
+
+async function findSessionId(context: GraphQLContext): Promise<string | null> {
+  const refreshTokenCookie: unknown = context.req.cookies[REFRESH_TOKEN_COOKIE];
+  if (typeof refreshTokenCookie === "string") {
+    const row = await findRefreshTokenByPlaintext(refreshTokenCookie);
+    if (row) return row.sessionId;
+  }
+  // no refresh cookie: fall back to the access token's session
+  return context.sessionId;
 }

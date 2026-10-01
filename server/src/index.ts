@@ -151,12 +151,14 @@ app.use(
     context: async ({ req, res }) => {
       const token: unknown = req.cookies[ACCESS_TOKEN_COOKIE];
       let userId: string | null = null;
+      let sessionId: string | null = null;
       let accessTokenExpiresAt: Date | null = null;
       if (typeof token === "string") {
         try {
           const result = await verifyToken(token);
           if (result) {
             userId = result.userId;
+            sessionId = result.sessionId;
             accessTokenExpiresAt = new Date(result.expiresAt);
           }
         } catch (err) {
@@ -167,6 +169,7 @@ app.use(
         req,
         res,
         userId,
+        sessionId,
         accessTokenExpiresAt,
         roomRegistry,
         connectionRegistry,
