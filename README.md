@@ -6,7 +6,7 @@ A real-time, multi-room chat platform with role-based access, persisted history,
 
 ## Live demo
 
-_Coming soon._
+**https://chat.rodzainna.com**
 
 | Username | Password      | Role       |
 | -------- | ------------- | ---------- |
