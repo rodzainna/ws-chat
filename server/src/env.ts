@@ -25,6 +25,12 @@ export function getMaxRooms(): number {
   return cachedMaxRooms;
 }
 
+let cachedMaxUsers: number | undefined;
+export function getMaxUsers(): number {
+  cachedMaxUsers ??= getPositiveIntEnv("MAX_USERS", 500);
+  return cachedMaxUsers;
+}
+
 let cachedSuperAdminUsername: string | null | undefined;
 export function getSuperAdminUsername(): string | null {
   if (cachedSuperAdminUsername === undefined) {

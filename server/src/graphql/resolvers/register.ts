@@ -1,4 +1,6 @@
 import { hashPassword } from "../../auth/password.js";
+import { tryConsumeRegistrationToken } from "../../auth/registrationRateLimit.js";
+import { getMaxUsers } from "../../env.js";
 import { establishSession } from "../../auth/session.js";
 import {
   validateUsername,
@@ -6,7 +8,7 @@ import {
   validatePassword,
   type FieldError,
 } from "../../auth/validation.js";
-import { createUser } from "../../db/users.js";
+import { countUsers, createUser } from "../../db/users.js";
 import {
   getViolatedUniqueField,
   isUniqueConstraintViolation,
@@ -27,11 +29,30 @@ const DUPLICATE_MESSAGES: Record<string, string> = {
   email: "Email is already registered",
 };
 
+const REGISTRATION_CLOSED: GraphQLUserError = {
+  field: [],
+  message: "Registration is closed. Try one of the demo accounts.",
+};
+
+const RATE_LIMITED: GraphQLUserError = {
+  field: [],
+  message: "Too many sign-ups from your network. Please try again later.",
+};
+
 export async function register(
   _parent: unknown,
   { input }: { input: RegisterInput },
   context: GraphQLContext,
 ): Promise<RegisterPayload> {
+  // the cap doesn't cost a token; the rate limit runs before validation and
+  // bcrypt so invalid spam still costs tokens
+  if ((await countUsers()) >= getMaxUsers()) {
+    return failure(REGISTRATION_CLOSED);
+  }
+  if (!tryConsumeRegistrationToken(context.req.ip)) {
+    return failure(RATE_LIMITED);
+  }
+
   const validationErrors = [
     validateUsername(input.username),
     validateEmail(input.email),
@@ -76,4 +97,8 @@ export async function register(
   const { accessTokenExpiresAt } = await establishSession(user.id, context.res);
 
   return { user, accessTokenExpiresAt, userErrors: [] };
+}
+
+function failure(error: GraphQLUserError): RegisterPayload {
+  return { user: null, accessTokenExpiresAt: null, userErrors: [error] };
 }

@@ -71,7 +71,7 @@ Messages live in Postgres (`messages`: `id`, `room_id`, `user_id`, `content`, `c
 ```
 client/          React + Vite + React Router, Apollo Client, shadcn/ui
 server/
-  src/auth/      JWT issuance/verification, password hashing, login rate limiting
+  src/auth/      JWT issuance/verification, password hashing, login + sign-up rate limiting
   src/graphql/   Apollo Server schema + resolvers (auth, rooms, admin, history)
   src/ws/        raw `ws` server — connection registry, room registry, message handlers
   src/db/        Prisma-backed data access

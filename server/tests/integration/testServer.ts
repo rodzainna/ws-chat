@@ -69,6 +69,8 @@ export async function startTestServer(): Promise<TestServer> {
     RATE_LIMIT_WINDOW_SECONDS: "10",
     RATE_LIMIT_MAX_ROOM_CREATIONS: "5",
     RATE_LIMIT_ROOM_CREATION_WINDOW_SECONDS: "300",
+    // every test registers from the same IP
+    RATE_LIMIT_MAX_REGISTRATIONS: "1000",
   });
 
   const child: ChildProcess = spawn("npx", ["tsx", "src/index.ts"], {
