@@ -1,23 +1,31 @@
 import { clearAuthCookies, REFRESH_TOKEN_COOKIE } from "../../auth/cookies.js";
 import {
   findRefreshTokenByPlaintext,
-  revokeRefreshToken,
+  revokeSession,
 } from "../../db/refreshTokens.js";
 import type { GraphQLContext } from "../context.js";
 
+// logs out this browser only (all its tabs), not the user's other devices
 export async function logout(
   _parent: unknown,
   _args: unknown,
   context: GraphQLContext,
 ): Promise<{ success: boolean }> {
-  const refreshTokenCookie: unknown = context.req.cookies[REFRESH_TOKEN_COOKIE];
-  if (typeof refreshTokenCookie === "string") {
-    const row = await findRefreshTokenByPlaintext(refreshTokenCookie);
-    await revokeRefreshToken(refreshTokenCookie);
-    if (row) {
-      context.connectionRegistry.disconnectUser(row.userId, "logged_out");
-    }
+  const sessionId = await findSessionId(context);
+  if (sessionId) {
+    await revokeSession(sessionId);
+    context.connectionRegistry.disconnectSession(sessionId, "logged_out");
   }
   clearAuthCookies(context.res);
   return { success: true };
+}
+
+async function findSessionId(context: GraphQLContext): Promise<string | null> {
+  const refreshTokenCookie: unknown = context.req.cookies[REFRESH_TOKEN_COOKIE];
+  if (typeof refreshTokenCookie === "string") {
+    const row = await findRefreshTokenByPlaintext(refreshTokenCookie);
+    if (row) return row.sessionId;
+  }
+  // no refresh cookie: fall back to the access token's session
+  return context.sessionId;
 }

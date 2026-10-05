@@ -95,6 +95,7 @@ model Mention {
 model RefreshToken {
   id        String    @id @default(uuid())
   userId    String
+  sessionId String
   tokenHash String    @unique
   expiresAt DateTime
   revokedAt DateTime?
@@ -103,5 +104,6 @@ model RefreshToken {
   user User @relation(fields: [userId], references: [id], onDelete: Restrict)
 
   @@index([userId])
+  @@index([sessionId])
   @@map("refresh_tokens")
 }

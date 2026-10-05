@@ -221,10 +221,46 @@ export async function deactivateUser(
   }
 }
 
+const LOGIN_MUTATION = `
+  mutation Login($input: LoginInput!) {
+    login(input: $input) {
+      user { id username }
+      userErrors { field message }
+    }
+  }
+`;
+
+// a separate login is a separate browser/device session
+export async function loginUser(
+  baseUrl: string,
+  username: string,
+): Promise<TestUser> {
+  const result = await graphqlRequest<{
+    login: { user: { id: string; username: string } | null };
+  }>(baseUrl, LOGIN_MUTATION, {
+    input: { username, password: "testpass123" },
+  });
+  const user = result.data?.login.user;
+  if (!user) throw new Error(`loginUser(${username}) failed`);
+  return { ...user, cookies: mergeCookies("", result.cookies) };
+}
+
 const LOGOUT_MUTATION = `mutation { logout { success } }`;
 
 export async function logout(baseUrl: string, user: TestUser): Promise<void> {
   await graphqlRequest(baseUrl, LOGOUT_MUTATION, {}, user.cookies);
+}
+
+const REFRESH_MUTATION = `mutation { refresh { userErrors { message } } }`;
+
+export async function refreshSucceeds(
+  baseUrl: string,
+  user: TestUser,
+): Promise<boolean> {
+  const result = await graphqlRequest<{
+    refresh: { userErrors: { message: string }[] };
+  }>(baseUrl, REFRESH_MUTATION, {}, user.cookies);
+  return result.data?.refresh.userErrors.length === 0;
 }
 
 const SET_GLOBAL_ROLE_MUTATION = `

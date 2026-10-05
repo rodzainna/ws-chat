@@ -328,8 +328,11 @@ export function registerWsHandlers(
   startHeartbeat(wss);
 
   wss.on("connection", (socket: WebSocket, request: IncomingMessage) => {
-    const userId = (request as AuthenticatedRequest).userId;
-    const expiresAt = (request as AuthenticatedRequest).expiresAt;
+    const {
+      userId,
+      sessionId = null,
+      expiresAt,
+    } = request as AuthenticatedRequest;
     if (!userId || !expiresAt) {
       socket.close(1008, "Authentication required");
       return;
@@ -341,7 +344,11 @@ export function registerWsHandlers(
       authSocket.isAlive = true;
     });
 
-    const justCameOnline = connectionRegistry.register(userId, socket);
+    const justCameOnline = connectionRegistry.register(
+      userId,
+      sessionId,
+      socket,
+    );
     if (justCameOnline) {
       broadcastPresenceChange(registry, userId, true).catch((err: unknown) => {
         console.error("Error broadcasting presence (online):", err);

@@ -8,7 +8,7 @@ Every GraphQL mutation, one file per operation. See [`../api.md`](../api.md) for
 | --------------------------- | ------------------- | ------------------------------ |
 | [`register`](./register.md) | None                | Create an account, auto-login  |
 | [`login`](./login.md)       | None                | Start a session                |
-| [`logout`](./logout.md)     | None                | End the session everywhere     |
+| [`logout`](./logout.md)     | None                | End this browser's session     |
 | [`refresh`](./refresh.md)   | Valid refresh token | Rotate access + refresh tokens |
 
 ## Rooms

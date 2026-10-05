@@ -4,7 +4,9 @@ import { promoteToAdmin } from "./testDb.js";
 import {
   registerUsers,
   deactivateUser,
+  loginUser,
   logout,
+  refreshSucceeds,
   connectSocket,
 } from "./testClient.js";
 
@@ -52,6 +54,26 @@ describe("force-disconnect on deactivation and logout", () => {
 
     const expired = await socket.waitFor((m) => m.type === "session_expired");
     expect(expired).toEqual({ type: "session_expired", reason: "logged_out" });
+  });
+
+  it("logout closes every tab of that browser but not the user's other devices", async () => {
+    const [laptop] = await registerUsers(ctx.server.baseUrl, ["alice"]);
+    const phone = await loginUser(ctx.server.baseUrl, "alice");
+
+    const tabOne = await connectSocket(ctx.server.wsUrl, laptop.cookies);
+    const tabTwo = await connectSocket(ctx.server.wsUrl, laptop.cookies);
+    const phoneSocket = await connectSocket(ctx.server.wsUrl, phone.cookies);
+
+    await logout(ctx.server.baseUrl, laptop);
+
+    await tabOne.waitFor((m) => m.type === "session_expired");
+    await tabTwo.waitFor((m) => m.type === "session_expired");
+    await phoneSocket.assertNoneWithin((m) => m.type === "session_expired");
+
+    expect(await refreshSucceeds(ctx.server.baseUrl, laptop)).toBe(false);
+    expect(await refreshSucceeds(ctx.server.baseUrl, phone)).toBe(true);
+
+    phoneSocket.close();
   });
 
   it("doesn't disconnect an unrelated user's socket when someone else is deactivated", async () => {
