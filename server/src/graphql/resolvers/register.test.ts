@@ -19,6 +19,9 @@ const countUsers = vi.fn();
 const createUser = vi.fn();
 vi.mock("../../db/users.js", () => ({ countUsers, createUser }));
 
+const MAX_USERS = 3;
+vi.mock("../../env.js", () => ({ getMaxUsers: () => MAX_USERS }));
+
 const { register } = await import("./register.js");
 
 const context = {
@@ -43,26 +46,27 @@ describe("register", () => {
   });
 
   it("closes registration once the user cap is reached", async () => {
-    countUsers.mockResolvedValue(500);
+    countUsers.mockResolvedValue(MAX_USERS);
 
     const result = await register(null, { input }, context);
 
     expect(result.userErrors[0].message).toMatch(/Registration is closed/);
-    expect(tryConsumeRegistrationToken).not.toHaveBeenCalled();
+    expect(hashPassword).not.toHaveBeenCalled();
     expect(createUser).not.toHaveBeenCalled();
   });
 
-  it("rejects a rate-limited IP before hashing the password", async () => {
+  it("rejects a rate-limited IP before touching the database", async () => {
     tryConsumeRegistrationToken.mockReturnValue(false);
 
     const result = await register(null, { input }, context);
 
     expect(result.userErrors[0].message).toMatch(/Too many sign-ups/);
     expect(tryConsumeRegistrationToken).toHaveBeenCalledWith("1.1.1.1");
+    expect(countUsers).not.toHaveBeenCalled();
     expect(hashPassword).not.toHaveBeenCalled();
   });
 
-  it("charges a token even for invalid input", async () => {
+  it("doesn't charge a token for invalid input", async () => {
     const result = await register(
       null,
       { input: { ...input, username: "x" } },
@@ -70,7 +74,7 @@ describe("register", () => {
     );
 
     expect(result.user).toBeNull();
-    expect(tryConsumeRegistrationToken).toHaveBeenCalled();
+    expect(tryConsumeRegistrationToken).not.toHaveBeenCalled();
   });
 
   it("registers when under the cap and the limit", async () => {

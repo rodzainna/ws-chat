@@ -45,7 +45,7 @@ One or more of the following, by field:
 | `password`                | `"Password must be at least 8 characters"` / `"Password must be at most <N> bytes"`                      | The upper bound exists so an oversized password fails cleanly with a `userError` instead of throwing inside the bcrypt call.                                                                     |
 | `username` **or** `email` | `"Username is already taken"` / `"Email is already registered"` / `"That information is already in use"` | Race-safe: caught from the database's own unique-constraint violation, not a separate pre-check — so two concurrent registrations for the same username can't both "pass" a check and then fail. |
 | (none)                    | `"Registration is closed. Try one of the demo accounts."`                                                | Total users reached `MAX_USERS` (default 500).                                                                                                                                                   |
-| (none)                    | `"Too many sign-ups from your network. Please try again later."`                                         | Per-IP limit, `RATE_LIMIT_MAX_REGISTRATIONS` per `RATE_LIMIT_REGISTRATION_WINDOW_SECONDS` (default 5 per hour). Invalid attempts count too.                                                      |
+| (none)                    | `"Too many sign-ups from your network. Please try again later."`                                         | Per-IP limit, `RATE_LIMIT_MAX_REGISTRATIONS` per `RATE_LIMIT_REGISTRATION_WINDOW_SECONDS` (default 10 per hour). Checked after validation, so typos don't count.                                 |
 
 ## Example
 
