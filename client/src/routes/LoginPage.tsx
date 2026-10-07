@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { Navigate } from "react-router";
+import { Link, Navigate } from "react-router";
 import { gql, useMutation } from "@apollo/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -97,7 +97,7 @@ export function LoginPage() {
   const busy = loggingIn || registering;
 
   return (
-    <div className="flex min-h-svh items-center justify-center bg-muted/30 p-4">
+    <div className="flex min-h-svh flex-col items-center justify-center gap-4 bg-muted/30 p-4">
       <Card className="w-full max-w-sm">
         <CardHeader>
           <CardTitle>
@@ -164,6 +164,19 @@ export function LoginPage() {
             <Button type="submit" className="w-full" disabled={busy}>
               {mode === "login" ? "Log in" : "Create account"}
             </Button>
+
+            <p className="text-center text-xs text-muted-foreground">
+              {mode === "login" ? "By logging in" : "By creating an account"},
+              you agree to the{" "}
+              <Link to="/terms" className="underline">
+                Terms
+              </Link>{" "}
+              and{" "}
+              <Link to="/privacy" className="underline">
+                Privacy Policy
+              </Link>
+              .
+            </p>
           </form>
 
           <button
@@ -180,6 +193,14 @@ export function LoginPage() {
           </button>
         </CardContent>
       </Card>
+      <nav className="flex gap-4 text-xs text-muted-foreground">
+        <Link to="/terms" className="hover:underline">
+          Terms
+        </Link>
+        <Link to="/privacy" className="hover:underline">
+          Privacy
+        </Link>
+      </nav>
     </div>
   );
 }

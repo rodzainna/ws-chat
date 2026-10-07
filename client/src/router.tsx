@@ -8,12 +8,16 @@ import { NoRoomSelected } from "@/routes/NoRoomSelected";
 import { RoomRoute } from "@/routes/RoomRoute";
 import { AdminLayout } from "@/routes/AdminLayout";
 import { AdminPage } from "@/routes/AdminPage";
+import { TermsPage } from "@/routes/TermsPage";
+import { PrivacyPage } from "@/routes/PrivacyPage";
 
 export const router = createBrowserRouter([
   {
     element: <RootLayout />,
     children: [
       { path: "/login", element: <LoginPage /> },
+      { path: "/terms", element: <TermsPage /> },
+      { path: "/privacy", element: <PrivacyPage /> },
       {
         element: <ProtectedRoute />,
         children: [
