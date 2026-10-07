@@ -42,17 +42,17 @@ A real-time, multi-room chat platform with role-based access, persisted history,
 - **Mobile-responsive UI**, including a Slack-mobile-style collapsible room sidebar
 - **CI pipeline** (GitHub Actions) running lint, typecheck, build, and the full test suite against a real Postgres service container on every push and pull request
 
-## Core requirements
+## Feature map
 
-| Requirement                                                      | Status | Where                                                                                               |
-| ---------------------------------------------------------------- | ------ | --------------------------------------------------------------------------------------------------- |
-| WebSocket connections for real-time client-server communication  | ✅     | `server/src/ws/` — see [Why raw `ws`](#why-raw-ws-over-socketio) below                              |
-| Create and join multiple chat rooms/channels                     | ✅     | `createRoom`, `joinRoom`, `rooms` — see [docs/api.md](docs/api.md)                                  |
-| Basic user authentication and authorization for chat room access | ✅     | JWT in an httpOnly cookie; `canAccessRoom()` shared by WebSocket and GraphQL so the two can't drift |
-| Chat history storage approach, with the "whys"                   | ✅     | See [Chat history: storage and the "whys"](#chat-history-storage-and-the-whys)                      |
-| **Bonus:** @mentions, message editing, deletion                  | ✅     | Parsed on send into a `mentions` table; edit/delete are author-only and soft-deleted                |
-| **Bonus:** rate limiting for message sending                     | ✅     | Token bucket, per-user, env-configurable                                                            |
-| **Bonus:** administrative interface for rooms and users          | ✅     | `/admin` — role changes, deactivate/reactivate, room soft-delete, message removal                   |
+| Feature                                   | Where                                                                                               |
+| ----------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| Real-time messaging over raw WebSockets   | `server/src/ws/` — see [Why raw `ws`](#why-raw-ws-over-socketio) below                              |
+| Multiple public and private rooms         | `createRoom`, `joinRoom`, `rooms` — see [docs/api.md](docs/api.md)                                  |
+| Authentication and per-room authorization | JWT in an httpOnly cookie; `canAccessRoom()` shared by WebSocket and GraphQL so the two can't drift |
+| Persisted chat history                    | See [Chat history: storage and the "whys"](#chat-history-storage-and-the-whys)                      |
+| @mentions, message editing and deletion   | Parsed on send into a `mentions` table; edit/delete are author-only and soft-deleted                |
+| Message rate limiting                     | Token bucket, per-user, env-configurable                                                            |
+| Admin interface for rooms and users       | `/admin` — role changes, deactivate/reactivate, room soft-delete, message removal                   |
 
 ## Chat history: storage and the "whys"
 
