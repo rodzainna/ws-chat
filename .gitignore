@@ -7,4 +7,4 @@ server/src/generated/
 *.log
 .DS_Store
 server/scratch-*.mjs
-.claude/settings.local.json
+*.local.json

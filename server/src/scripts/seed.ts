@@ -13,11 +13,6 @@ const CORE_USERS: {
   { username: "bob", email: "bob@example.com", globalRole: "USER" },
   { username: "carol", email: "carol@example.com", globalRole: "RESTRICTED" },
   { username: "dave", email: "dave@example.com", globalRole: "ADMIN" },
-  {
-    username: "superadmin",
-    email: "superadmin@app.com",
-    globalRole: "ADMIN",
-  },
 ];
 
 const EXTRA_USERNAMES = [
@@ -624,6 +619,18 @@ async function main() {
     );
   }
 
+  // never seeded with the public demo password: SUPERADMIN_USERNAME can't be
+  // demoted or deactivated, so a known password would hand that out
+  const superAdminPassword = process.env.SEED_SUPERADMIN_PASSWORD;
+  const superAdmin = superAdminPassword
+    ? await upsertUser(
+        "superadmin",
+        "superadmin@example.com",
+        "ADMIN",
+        await hashPassword(superAdminPassword),
+      )
+    : null;
+
   const extras = [];
   for (const username of EXTRA_USERNAMES) {
     extras.push(
@@ -635,7 +642,9 @@ async function main() {
       ),
     );
   }
-  console.log(`Users ready: ${CORE_USERS.length + extras.length} total`);
+  console.log(
+    `Users ready: ${CORE_USERS.length + extras.length + (superAdmin ? 1 : 0)} total`,
+  );
 
   const general = await prisma.room.upsert({
     where: { name: "general" },
@@ -649,7 +658,9 @@ async function main() {
           { userId: core.alice.id, role: "OWNER" },
           { userId: core.bob.id, role: "MEMBER" },
           { userId: core.dave.id, role: "MEMBER" },
-          { userId: core.superadmin.id, role: "MEMBER" },
+          ...(superAdmin
+            ? [{ userId: superAdmin.id, role: "MEMBER" as const }]
+            : []),
         ],
       },
     },
