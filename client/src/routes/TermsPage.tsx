@@ -12,9 +12,11 @@ export function TermsPage() {
       <LegalSection heading="It's a demo">
         <p>
           ws-chat is provided as-is, for free, with no guarantees. It runs on a
-          free hosting tier, so it may be slow to wake up, go down, or be reset.
-          Data may be wiped and the service may shut down at any time without
-          notice. Don't rely on it for anything important.
+          free hosting tier, so it may be slow to wake up or go down. The
+          database may be wiped and reseeded at any time, as often as once a
+          month, which deletes all accounts and messages created since. The
+          service may also shut down at any time without notice. Don't rely on
+          it for anything important.
         </p>
       </LegalSection>
 
