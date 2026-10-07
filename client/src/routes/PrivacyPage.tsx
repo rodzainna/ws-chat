@@ -60,18 +60,24 @@ export function PrivacyPage() {
 
       <LegalSection heading="How long it's kept">
         <p>
-          Deleted messages and rooms are hidden but stay in the database, so
-          earlier conversations still make sense. There's no self-serve account
-          deletion yet. Email <ContactLink /> and your account and messages will
-          be removed. The demo may also be reset or shut down at any time, and
-          that wipes all data.
+          Not for long. The database may be wiped and reseeded with demo data at
+          any time, as often as once a month, without notice. That removes every
+          account that signed up and everything it posted. Don't expect your
+          account or messages to last.
+        </p>
+        <p>
+          Until then, deleted messages and rooms are hidden but stay in the
+          database, so earlier conversations still make sense. There's no
+          account deletion feature. If you want your account deactivated sooner,
+          email <ContactLink />. Requests are handled by hand, on a best-effort
+          basis.
         </p>
       </LegalSection>
 
       <LegalSection heading="Contact">
         <p>
-          For questions or deletion requests, email <ContactLink />. See also
-          the{" "}
+          For questions or deactivation requests, email <ContactLink />. See
+          also the{" "}
           <Link to="/terms" className="underline">
             Terms of Service
           </Link>
