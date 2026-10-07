@@ -109,6 +109,8 @@ cp server/.env.example server/.env
 # edit server/.env — JWT_SECRET needs to be a real random value:
 #   openssl rand -base64 48
 
+cp client/.env.example client/.env      # optional: contact email for /terms and /privacy
+
 (cd server && npx prisma migrate dev)
 
 npm run dev:server                       # http://localhost:8080
