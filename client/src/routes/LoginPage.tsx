@@ -165,19 +165,18 @@ export function LoginPage() {
               {mode === "login" ? "Log in" : "Create account"}
             </Button>
 
-            {mode === "register" && (
-              <p className="text-center text-xs text-muted-foreground">
-                By creating an account, you agree to the{" "}
-                <Link to="/terms" className="underline">
-                  Terms
-                </Link>{" "}
-                and{" "}
-                <Link to="/privacy" className="underline">
-                  Privacy Policy
-                </Link>
-                .
-              </p>
-            )}
+            <p className="text-center text-xs text-muted-foreground">
+              {mode === "login" ? "By logging in" : "By creating an account"},
+              you agree to the{" "}
+              <Link to="/terms" className="underline">
+                Terms
+              </Link>{" "}
+              and{" "}
+              <Link to="/privacy" className="underline">
+                Privacy Policy
+              </Link>
+              .
+            </p>
           </form>
 
           <button
