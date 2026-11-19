@@ -16,10 +16,10 @@ import { MessageItem } from "@/components/chat/MessageItem";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/auth/useAuth";
+import { useRoomMembers } from "@/hooks/useRoomMembers";
 import { useChatSocket, type WsChatMessage } from "@/ws/useChatSocket";
 import {
   ADMIN_DELETE_MESSAGE_MUTATION,
-  ROOM_MEMBERS_QUERY,
   ROOM_MESSAGES_QUERY,
   ROOMS_QUERY,
 } from "@/graphql/queries";
@@ -28,7 +28,6 @@ import {
   type ChatMessage,
   type MessagesQueryData,
   type Room,
-  type RoomMemberRow,
 } from "@/lib/chat";
 
 const NEAR_TOP_THRESHOLD_PX = 150;
@@ -38,24 +37,8 @@ export function RoomPage() {
   const { user } = useAuth();
   const { data: roomsData } = useQuery<{ rooms: Room[] }>(ROOMS_QUERY);
   const room = roomsData?.rooms.find((r) => r.id === roomId);
-  const { data: membersData, refetch: refetchMembers } = useQuery<{
-    roomMembers: RoomMemberRow[];
-  }>(ROOM_MEMBERS_QUERY, { variables: { roomId }, skip: !roomId });
-  const [members, setMembers] = useState<RoomMemberRow[]>([]);
-  useEffect(() => {
-    if (!membersData) return;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setMembers(
-      membersData.roomMembers
-        .map((member) =>
-          member.user.id === user?.id ? { ...member, isOnline: true } : member,
-        )
-        .sort((a, b) => {
-          if (a.role !== b.role) return a.role === "OWNER" ? -1 : 1;
-          return a.user.username.localeCompare(b.user.username);
-        }),
-    );
-  }, [membersData, user?.id]);
+  const { members, membersLoaded, refetchMembers, setMemberOnline } =
+    useRoomMembers(roomId, user?.id);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const [hasPreviousPage, setHasPreviousPage] = useState(false);
@@ -199,13 +182,7 @@ export function RoomPage() {
         );
         setDeletePending(false);
       },
-      onPresenceChanged: (userId, online) => {
-        setMembers((prev) =>
-          prev.map((m) =>
-            m.user.id === userId ? { ...m, isOnline: online } : m,
-          ),
-        );
-      },
+      onPresenceChanged: setMemberOnline,
       onMembersChanged: () => {
         void refetchMembers();
       },
@@ -326,7 +303,7 @@ export function RoomPage() {
           roomId={roomId}
           room={room}
           members={members}
-          membersLoaded={!!membersData}
+          membersLoaded={membersLoaded}
           refetchMembers={refetchMembers}
         />
       </div>
