@@ -1,5 +1,5 @@
 import { useParams } from "react-router";
-import { RoomPage } from "@/routes/RoomPage";
+import { RoomPage } from "@/routes/pages/RoomPage";
 
 // keyed by roomId so switching rooms remounts RoomPage and its state
 export function RoomRoute() {

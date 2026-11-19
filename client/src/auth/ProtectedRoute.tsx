@@ -5,7 +5,7 @@ import { ChatConnectionProvider } from "@/ws/ChatConnectionProvider";
 import { useChatConnection } from "@/ws/useChatConnection";
 import { expireSession } from "@/ws/sessionExpiredMessages";
 import { attemptRefresh, beginReauthRecovery } from "@/lib/apollo";
-import { ReauthBanner } from "@/components/ReauthBanner";
+import { ReauthBanner } from "./ReauthBanner";
 
 function GlobalSessionExpiredHandler() {
   const { subscribe } = useChatConnection();

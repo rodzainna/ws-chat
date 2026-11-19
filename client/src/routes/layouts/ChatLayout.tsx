@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Outlet } from "react-router";
-import { AppHeader } from "@/components/AppHeader";
-import { RoomSidebar } from "@/components/RoomSidebar";
+import { AppHeader } from "@/components/layout/AppHeader";
+import { RoomSidebar } from "@/components/chat/RoomSidebar";
 
 export function ChatLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);

@@ -21,7 +21,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { AdminPagination } from "@/components/AdminPagination";
+import { AdminPagination } from "@/components/admin/AdminPagination";
 import { usePagedConnection } from "@/hooks/usePagedConnection";
 import { useAuth } from "@/auth/useAuth";
 
