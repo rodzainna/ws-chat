@@ -13,6 +13,7 @@ import { useLazyQuery, useMutation, useQuery } from "@apollo/client";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { RoomLabel } from "@/components/chat/RoomLabel";
+import { MessageComposer } from "@/components/chat/MessageComposer";
 import { MessageItem } from "@/components/chat/MessageItem";
 import { UsernameSuggestions } from "@/components/chat/UsernameSuggestions";
 import { Input } from "@/components/ui/input";
@@ -95,8 +96,6 @@ export function RoomPage() {
   const [addMemberError, setAddMemberError] = useState<string | null>(null);
   const [showAddSuggestions, setShowAddSuggestions] = useState(true);
   const addMemberInputRef = useRef<HTMLInputElement>(null);
-  const [mentionQuery, setMentionQuery] = useState<string | null>(null);
-  const draftInputRef = useRef<HTMLInputElement>(null);
   const [removingMemberIds, setRemovingMemberIds] = useState<Set<string>>(
     new Set(),
   );
@@ -121,16 +120,6 @@ export function RoomPage() {
     return matches.slice(0, 8);
   }, [candidatesData, addMemberUsername, showAddSuggestions]);
   const addMemberNav = useSuggestionNavigation(addMemberCandidates.length);
-
-  const mentionCandidates = useMemo<SuggestionItem[]>(() => {
-    if (mentionQuery === null) return [];
-    const query = mentionQuery.toLowerCase();
-    return members
-      .filter((m) => m.user.username.toLowerCase().startsWith(query))
-      .slice(0, 5)
-      .map((m) => ({ id: m.user.id, username: m.user.username }));
-  }, [members, mentionQuery]);
-  const mentionNav = useSuggestionNavigation(mentionCandidates.length);
 
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [deletePending, setDeletePending] = useState(false);
@@ -340,46 +329,6 @@ export function RoomPage() {
     setSocketError(null);
     pendingSendsRef.current.push(draft);
     setDraft("");
-  }
-
-  function handleDraftChange(event: ChangeEvent<HTMLInputElement>) {
-    const value = event.target.value;
-    setDraft(value);
-    const cursorPos = event.target.selectionStart ?? value.length;
-    const match = value.slice(0, cursorPos).match(/(?:^|\s)@([a-z0-9_]*)$/i);
-    mentionNav.setHighlightedIndex(0);
-    setMentionQuery(match ? match[1] : null);
-  }
-
-  function selectMention(username: string) {
-    const input = draftInputRef.current;
-    const cursorPos = input?.selectionStart ?? draft.length;
-    const before = draft
-      .slice(0, cursorPos)
-      .replace(/@[a-z0-9_]*$/i, `@${username} `);
-    const after = draft.slice(cursorPos);
-    setDraft(before + after);
-    setMentionQuery(null);
-    requestAnimationFrame(() => {
-      input?.focus();
-      input?.setSelectionRange(before.length, before.length);
-    });
-  }
-
-  function handleDraftKeyDown(event: KeyboardEvent<HTMLInputElement>) {
-    if (mentionQuery === null || mentionCandidates.length === 0) return;
-    if (event.key === "ArrowDown") {
-      event.preventDefault();
-      mentionNav.moveDown();
-    } else if (event.key === "ArrowUp") {
-      event.preventDefault();
-      mentionNav.moveUp();
-    } else if (event.key === "Enter" || event.key === "Tab") {
-      event.preventDefault();
-      selectMention(mentionCandidates[mentionNav.highlightedIndex].username);
-    } else if (event.key === "Escape") {
-      setMentionQuery(null);
-    }
   }
 
   function startEdit(message: ChatMessage) {
@@ -687,26 +636,12 @@ export function RoomPage() {
         <p className="px-4 text-sm text-destructive">{socketError}</p>
       )}
 
-      <form onSubmit={handleSend} className="flex gap-2 border-t p-4">
-        <div className="relative flex-1">
-          <Input
-            ref={draftInputRef}
-            value={draft}
-            onChange={handleDraftChange}
-            onKeyDown={handleDraftKeyDown}
-            onBlur={() => setMentionQuery(null)}
-            placeholder="Message…"
-            maxLength={2000}
-          />
-          <UsernameSuggestions
-            items={mentionCandidates}
-            highlightedIndex={mentionNav.highlightedIndex}
-            onSelect={(item) => selectMention(item.username)}
-            position="above"
-          />
-        </div>
-        <Button type="submit">Send</Button>
-      </form>
+      <MessageComposer
+        draft={draft}
+        onDraftChange={setDraft}
+        onSubmit={handleSend}
+        members={members}
+      />
     </div>
   );
 }
