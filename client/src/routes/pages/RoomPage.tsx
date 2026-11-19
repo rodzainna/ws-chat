@@ -9,7 +9,7 @@ import {
   type KeyboardEvent,
 } from "react";
 import { useParams } from "react-router";
-import { gql, useLazyQuery, useMutation, useQuery } from "@apollo/client";
+import { useLazyQuery, useMutation, useQuery } from "@apollo/client";
 import { toast } from "sonner";
 import { Loader2Icon } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -38,197 +38,28 @@ import {
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/auth/useAuth";
 import { useChatSocket, type WsChatMessage } from "@/ws/useChatSocket";
-import { ROOMS_QUERY } from "@/graphql/queries";
+import {
+  ADD_ROOM_MEMBER_MUTATION,
+  ADMIN_DELETE_MESSAGE_MUTATION,
+  REMOVE_ROOM_MEMBER_MUTATION,
+  ROOM_MEMBERS_QUERY,
+  ROOM_MEMBERSHIP_CANDIDATES_QUERY,
+  ROOM_MESSAGES_QUERY,
+  ROOMS_QUERY,
+} from "@/graphql/queries";
+import {
+  edgeToChatMessage,
+  formatMessageTimestamp,
+  type ChatMessage,
+  type MessagesQueryData,
+  type Room,
+  type RoomMemberRow,
+  type SuggestionItem,
+} from "@/lib/chat";
+import { renderContentWithMentions } from "@/lib/renderMentions";
 import { useSuggestionNavigation } from "@/hooks/useSuggestionNavigation";
 
-type Room = { id: string; name: string; isPrivate: boolean };
-
-type ChatMessage = {
-  id: string;
-  userId: string;
-  username: string;
-  content: string;
-  createdAt: string;
-  editedAt: string | null;
-  deleted: boolean;
-  mentionedUsernames: string[];
-};
-
-type MessagesQueryData = {
-  messages: {
-    edges: {
-      node: {
-        id: string;
-        userId: string;
-        username: string;
-        content: string;
-        createdAt: string;
-        editedAt: string | null;
-        deletedAt: string | null;
-        mentionedUsernames: string[];
-      };
-    }[];
-    pageInfo: { hasPreviousPage: boolean; startCursor: string | null };
-  };
-};
-
-function edgeToChatMessage(
-  edge: MessagesQueryData["messages"]["edges"][number],
-): ChatMessage {
-  const { node } = edge;
-  return {
-    id: node.id,
-    userId: node.userId,
-    username: node.username,
-    content: node.content,
-    createdAt: node.createdAt,
-    editedAt: node.editedAt,
-    deleted: node.deletedAt !== null,
-    mentionedUsernames: node.mentionedUsernames,
-  };
-}
-
 const NEAR_TOP_THRESHOLD_PX = 150;
-
-type RoomMemberRow = {
-  user: { id: string; username: string };
-  role: "OWNER" | "MEMBER";
-  isOnline: boolean;
-};
-
-const ADMIN_DELETE_MESSAGE_MUTATION = gql`
-  mutation AdminDeleteMessage($messageId: ID!) {
-    deleteMessage(messageId: $messageId) {
-      message {
-        id
-      }
-      userErrors {
-        field
-        message
-      }
-    }
-  }
-`;
-
-const ROOM_MEMBERS_QUERY = gql`
-  query RoomMembers($roomId: ID!) {
-    roomMembers(roomId: $roomId) {
-      user {
-        id
-        username
-      }
-      role
-      isOnline
-    }
-  }
-`;
-
-const ADD_ROOM_MEMBER_MUTATION = gql`
-  mutation AddRoomMember($roomId: ID!, $username: String!) {
-    addRoomMember(roomId: $roomId, username: $username) {
-      room {
-        id
-      }
-      userErrors {
-        field
-        message
-      }
-    }
-  }
-`;
-
-const REMOVE_ROOM_MEMBER_MUTATION = gql`
-  mutation RemoveRoomMember($roomId: ID!, $userId: ID!) {
-    removeRoomMember(roomId: $roomId, userId: $userId) {
-      room {
-        id
-      }
-      userErrors {
-        field
-        message
-      }
-    }
-  }
-`;
-
-const ROOM_MEMBERSHIP_CANDIDATES_QUERY = gql`
-  query RoomMembershipCandidates($roomId: ID!) {
-    roomMembershipCandidates(roomId: $roomId) {
-      id
-      username
-    }
-  }
-`;
-
-const ROOM_MESSAGES_QUERY = gql`
-  query RoomMessages($roomId: ID!, $before: String) {
-    messages(roomId: $roomId, before: $before) {
-      edges {
-        node {
-          id
-          userId
-          username
-          content
-          createdAt
-          editedAt
-          deletedAt
-          mentionedUsernames
-        }
-      }
-      pageInfo {
-        hasPreviousPage
-        startCursor
-      }
-    }
-  }
-`;
-
-function formatMessageTimestamp(iso: string): string {
-  const date = new Date(iso);
-  const now = new Date();
-  const isToday =
-    date.getFullYear() === now.getFullYear() &&
-    date.getMonth() === now.getMonth() &&
-    date.getDate() === now.getDate();
-
-  const time = date.toLocaleTimeString([], {
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-  });
-  if (isToday) return time;
-
-  const datePart = date.toLocaleDateString([], {
-    month: "numeric",
-    day: "numeric",
-  });
-  return `${datePart} ${time}`;
-}
-
-function renderContentWithMentions(
-  content: string,
-  mentionedUsernames: string[],
-) {
-  if (mentionedUsernames.length === 0) return content;
-  const pattern = new RegExp(
-    `(?<![a-z0-9_])@(${mentionedUsernames.join("|")})\\b`,
-    "gi",
-  );
-  return content.split(pattern).map((part, index) =>
-    index % 2 === 1 ? (
-      <span
-        key={index}
-        className="rounded bg-amber-400 px-1 font-medium text-amber-950"
-      >
-        @{part}
-      </span>
-    ) : (
-      part
-    ),
-  );
-}
-
-type SuggestionItem = { id: string; username: string };
 
 // shared by the @mention picker and "Add people". onMouseDown so the input's
 // onBlur doesn't close the list before the click registers.
