@@ -1,5 +1,9 @@
 import { Link } from "react-router";
-import { ContactLink, LegalLayout, LegalSection } from "@/routes/LegalLayout";
+import {
+  ContactLink,
+  LegalLayout,
+  LegalSection,
+} from "@/routes/layouts/LegalLayout";
 
 export function PrivacyPage() {
   return (

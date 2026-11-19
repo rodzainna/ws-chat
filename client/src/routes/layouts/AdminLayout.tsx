@@ -1,5 +1,5 @@
 import { Outlet } from "react-router";
-import { AppHeader } from "@/components/AppHeader";
+import { AppHeader } from "@/components/layout/AppHeader";
 
 export function AdminLayout() {
   return (

@@ -5,7 +5,7 @@ import { ChevronRightIcon } from "lucide-react";
 import { ROOMS_QUERY } from "@/graphql/queries";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { RoomLabel } from "@/components/RoomLabel";
+import { RoomLabel } from "@/components/chat/RoomLabel";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,

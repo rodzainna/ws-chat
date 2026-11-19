@@ -1,5 +1,5 @@
-import { AdminUsersSection } from "@/components/AdminUsersSection";
-import { AdminRoomsSection } from "@/components/AdminRoomsSection";
+import { AdminUsersSection } from "@/components/admin/AdminUsersSection";
+import { AdminRoomsSection } from "@/components/admin/AdminRoomsSection";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export function AdminPage() {

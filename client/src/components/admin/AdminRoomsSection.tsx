@@ -3,7 +3,7 @@ import { gql, useApolloClient, useMutation } from "@apollo/client";
 import { Loader2Icon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { RoomLabel } from "@/components/RoomLabel";
+import { RoomLabel } from "@/components/chat/RoomLabel";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -15,7 +15,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { AdminPagination } from "@/components/AdminPagination";
+import { AdminPagination } from "@/components/admin/AdminPagination";
 import { usePagedConnection } from "@/hooks/usePagedConnection";
 
 type AdminRoom = {
