@@ -1,21 +1,21 @@
-import { hashPassword } from "../../auth/password.js";
-import { tryConsumeRegistrationToken } from "../../auth/registrationRateLimit.js";
-import { getMaxUsers } from "../../env.js";
-import { establishSession } from "../../auth/session.js";
+import { hashPassword } from "../../../auth/password.js";
+import { tryConsumeRegistrationToken } from "../../../auth/registrationRateLimit.js";
+import { getMaxUsers } from "../../../env.js";
+import { establishSession } from "../../../auth/session.js";
 import {
   validateUsername,
   validateEmail,
   validatePassword,
   type FieldError,
-} from "../../auth/validation.js";
-import { countUsers, createUser } from "../../db/users.js";
+} from "../../../auth/validation.js";
+import { countUsers, createUser } from "../../../db/users.js";
 import {
   getViolatedUniqueField,
   isUniqueConstraintViolation,
-} from "../../db/prismaErrors.js";
-import type { User } from "../../generated/prisma/client.js";
-import type { GraphQLContext } from "../context.js";
-import { toUserError, type GraphQLUserError } from "../userErrors.js";
+} from "../../../db/prismaErrors.js";
+import type { User } from "../../../generated/prisma/client.js";
+import type { GraphQLContext } from "../../context.js";
+import { toUserError, type GraphQLUserError } from "../../userErrors.js";
 
 type RegisterInput = { username: string; email: string; password: string };
 type RegisterPayload = {

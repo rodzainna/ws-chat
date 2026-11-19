@@ -1,8 +1,8 @@
 import { GraphQLError } from "graphql";
-import { requireActiveUser } from "../currentUser.js";
-import { canAccessRoom, findRoomMembers } from "../../db/rooms.js";
-import type { User, RoomRole } from "../../generated/prisma/client.js";
-import type { GraphQLContext } from "../context.js";
+import { requireActiveUser } from "../../currentUser.js";
+import { canAccessRoom, findRoomMembers } from "../../../db/rooms.js";
+import type { User, RoomRole } from "../../../generated/prisma/client.js";
+import type { GraphQLContext } from "../../context.js";
 
 type RoomMemberResult = { user: User; role: RoomRole; isOnline: boolean };
 

@@ -1,9 +1,12 @@
-import { clearAuthCookies, REFRESH_TOKEN_COOKIE } from "../../auth/cookies.js";
+import {
+  clearAuthCookies,
+  REFRESH_TOKEN_COOKIE,
+} from "../../../auth/cookies.js";
 import {
   findRefreshTokenByPlaintext,
   revokeSession,
-} from "../../db/refreshTokens.js";
-import type { GraphQLContext } from "../context.js";
+} from "../../../db/refreshTokens.js";
+import type { GraphQLContext } from "../../context.js";
 
 // logs out this browser only (all its tabs), not the user's other devices
 export async function logout(

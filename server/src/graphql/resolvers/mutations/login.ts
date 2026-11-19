@@ -1,13 +1,13 @@
-import { verifyPassword, hashPassword } from "../../auth/password.js";
-import { establishSession } from "../../auth/session.js";
+import { verifyPassword, hashPassword } from "../../../auth/password.js";
+import { establishSession } from "../../../auth/session.js";
 import {
   reserveLoginAttempt,
   releaseLoginAttempt,
-} from "../../auth/loginRateLimit.js";
-import { findUserByUsername } from "../../db/users.js";
-import type { User } from "../../generated/prisma/client.js";
-import type { GraphQLContext } from "../context.js";
-import type { GraphQLUserError } from "../userErrors.js";
+} from "../../../auth/loginRateLimit.js";
+import { findUserByUsername } from "../../../db/users.js";
+import type { User } from "../../../generated/prisma/client.js";
+import type { GraphQLContext } from "../../context.js";
+import type { GraphQLUserError } from "../../userErrors.js";
 
 type LoginInput = { username: string; password: string };
 type LoginPayload = {

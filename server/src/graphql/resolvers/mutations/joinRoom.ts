@@ -1,14 +1,14 @@
 import { GraphQLError } from "graphql";
-import { requireActiveUser } from "../currentUser.js";
+import { requireActiveUser } from "../../currentUser.js";
 import {
   findActiveRoomById,
   findMembership,
   addMember,
-} from "../../db/rooms.js";
-import { isUniqueConstraintViolation } from "../../db/prismaErrors.js";
-import type { GraphQLContext } from "../context.js";
-import type { GraphQLUserError } from "../userErrors.js";
-import { ROOM_NOT_FOUND, type RoomMutationPayload } from "./roomErrors.js";
+} from "../../../db/rooms.js";
+import { isUniqueConstraintViolation } from "../../../db/prismaErrors.js";
+import type { GraphQLContext } from "../../context.js";
+import type { GraphQLUserError } from "../../userErrors.js";
+import { ROOM_NOT_FOUND, type RoomMutationPayload } from "../roomErrors.js";
 
 const ALREADY_MEMBER: GraphQLUserError = {
   field: ["roomId"],

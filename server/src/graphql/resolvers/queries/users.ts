@@ -1,9 +1,9 @@
 import { GraphQLError } from "graphql";
-import { requireActiveUser } from "../currentUser.js";
-import { findUsersPage, countUsers } from "../../db/users.js";
-import type { GraphQLContext } from "../context.js";
-import type { User } from "../../generated/prisma/client.js";
-import { encodeCursor, decodeCursor } from "../cursor.js";
+import { requireActiveUser } from "../../currentUser.js";
+import { findUsersPage, countUsers } from "../../../db/users.js";
+import type { GraphQLContext } from "../../context.js";
+import type { User } from "../../../generated/prisma/client.js";
+import { encodeCursor, decodeCursor } from "../../cursor.js";
 
 const DEFAULT_PAGE_SIZE = 10;
 const MAX_PAGE_SIZE = 50;

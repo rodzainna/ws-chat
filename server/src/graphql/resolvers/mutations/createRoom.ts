@@ -1,16 +1,16 @@
 import { GraphQLError } from "graphql";
-import { requireActiveUser } from "../currentUser.js";
-import { validateRoomName } from "../../rooms/validation.js";
-import { countRooms, createRoomWithOwner } from "../../db/rooms.js";
-import { tryConsumeRoomCreationToken } from "../../rooms/rateLimit.js";
-import { getMaxRooms } from "../../env.js";
+import { requireActiveUser } from "../../currentUser.js";
+import { validateRoomName } from "../../../rooms/validation.js";
+import { countRooms, createRoomWithOwner } from "../../../db/rooms.js";
+import { tryConsumeRoomCreationToken } from "../../../rooms/rateLimit.js";
+import { getMaxRooms } from "../../../env.js";
 import {
   getViolatedUniqueField,
   isUniqueConstraintViolation,
-} from "../../db/prismaErrors.js";
-import type { GraphQLContext } from "../context.js";
-import { toUserError, type GraphQLUserError } from "../userErrors.js";
-import type { RoomMutationPayload } from "./roomErrors.js";
+} from "../../../db/prismaErrors.js";
+import type { GraphQLContext } from "../../context.js";
+import { toUserError, type GraphQLUserError } from "../../userErrors.js";
+import type { RoomMutationPayload } from "../roomErrors.js";
 
 type CreateRoomInput = { name: string; isPrivate: boolean };
 

@@ -1,6 +1,6 @@
-import { requireActiveUser } from "../currentUser.js";
-import { findVisibleRooms } from "../../db/rooms.js";
-import type { GraphQLContext } from "../context.js";
+import { requireActiveUser } from "../../currentUser.js";
+import { findVisibleRooms } from "../../../db/rooms.js";
+import type { GraphQLContext } from "../../context.js";
 
 export async function rooms(
   _parent: unknown,

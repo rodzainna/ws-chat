@@ -1,4 +1,4 @@
-import type { GraphQLContext } from "../context.js";
+import type { GraphQLContext } from "../../context.js";
 
 export function accessTokenExpiresAt(
   _parent: unknown,

@@ -1,9 +1,9 @@
 import { GraphQLError } from "graphql";
-import { requireActiveUser } from "../currentUser.js";
-import { findActiveRoomById, findUsersNotInRoom } from "../../db/rooms.js";
-import type { User } from "../../generated/prisma/client.js";
-import type { GraphQLContext } from "../context.js";
-import { canAddRoomMembers } from "./roomErrors.js";
+import { requireActiveUser } from "../../currentUser.js";
+import { findActiveRoomById, findUsersNotInRoom } from "../../../db/rooms.js";
+import type { User } from "../../../generated/prisma/client.js";
+import type { GraphQLContext } from "../../context.js";
+import { canAddRoomMembers } from "../roomErrors.js";
 
 export async function roomMembershipCandidates(
   _parent: unknown,
