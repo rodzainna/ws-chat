@@ -1,6 +1,6 @@
 import { isIPv6 } from "node:net";
 import { getPositiveIntEnv } from "../env.js";
-import { createTokenBucketLimiter } from "../tokenBucket.js";
+import { createTokenBucketLimiter } from "../lib/tokenBucket.js";
 
 const CAPACITY_ENV = "RATE_LIMIT_MAX_REGISTRATIONS";
 const DEFAULT_CAPACITY = 10;
