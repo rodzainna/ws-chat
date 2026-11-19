@@ -4,37 +4,22 @@ import {
   useMemo,
   useRef,
   useState,
-  type ChangeEvent,
   type FormEvent,
-  type KeyboardEvent,
 } from "react";
 import { useParams } from "react-router";
 import { useLazyQuery, useMutation, useQuery } from "@apollo/client";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
 import { RoomLabel } from "@/components/chat/RoomLabel";
+import { MembersDialog } from "@/components/chat/MembersDialog";
 import { MessageComposer } from "@/components/chat/MessageComposer";
 import { MessageItem } from "@/components/chat/MessageItem";
-import { UsernameSuggestions } from "@/components/chat/UsernameSuggestions";
-import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { cn } from "@/lib/utils";
 import { useAuth } from "@/auth/useAuth";
 import { useChatSocket, type WsChatMessage } from "@/ws/useChatSocket";
 import {
-  ADD_ROOM_MEMBER_MUTATION,
   ADMIN_DELETE_MESSAGE_MUTATION,
-  REMOVE_ROOM_MEMBER_MUTATION,
   ROOM_MEMBERS_QUERY,
-  ROOM_MEMBERSHIP_CANDIDATES_QUERY,
   ROOM_MESSAGES_QUERY,
   ROOMS_QUERY,
 } from "@/graphql/queries";
@@ -44,9 +29,7 @@ import {
   type MessagesQueryData,
   type Room,
   type RoomMemberRow,
-  type SuggestionItem,
 } from "@/lib/chat";
-import { useSuggestionNavigation } from "@/hooks/useSuggestionNavigation";
 
 const NEAR_TOP_THRESHOLD_PX = 150;
 
@@ -91,35 +74,6 @@ export function RoomPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState("");
   const [socketError, setSocketError] = useState<string | null>(null);
-  const [addMemberOpen, setAddMemberOpen] = useState(false);
-  const [addMemberUsername, setAddMemberUsername] = useState("");
-  const [addMemberError, setAddMemberError] = useState<string | null>(null);
-  const [showAddSuggestions, setShowAddSuggestions] = useState(true);
-  const addMemberInputRef = useRef<HTMLInputElement>(null);
-  const [removingMemberIds, setRemovingMemberIds] = useState<Set<string>>(
-    new Set(),
-  );
-  const [removeMemberError, setRemoveMemberError] = useState<string | null>(
-    null,
-  );
-
-  const { data: candidatesData } = useQuery<{
-    roomMembershipCandidates: SuggestionItem[];
-  }>(ROOM_MEMBERSHIP_CANDIDATES_QUERY, {
-    variables: { roomId },
-    skip: !roomId || !addMemberOpen,
-    fetchPolicy: "network-only",
-  });
-  const addMemberCandidates = useMemo<SuggestionItem[]>(() => {
-    if (!showAddSuggestions) return [];
-    const all = candidatesData?.roomMembershipCandidates ?? [];
-    const query = addMemberUsername.trim().toLowerCase();
-    const matches = query
-      ? all.filter((c) => c.username.toLowerCase().startsWith(query))
-      : all;
-    return matches.slice(0, 8);
-  }, [candidatesData, addMemberUsername, showAddSuggestions]);
-  const addMemberNav = useSuggestionNavigation(addMemberCandidates.length);
 
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [deletePending, setDeletePending] = useState(false);
@@ -139,26 +93,6 @@ export function RoomPage() {
     },
     { messageId: string }
   >(ADMIN_DELETE_MESSAGE_MUTATION);
-
-  const [addRoomMember, { loading: addingMember }] = useMutation<
-    {
-      addRoomMember: {
-        room: { id: string } | null;
-        userErrors: { field: string[]; message: string }[];
-      };
-    },
-    { roomId: string; username: string }
-  >(ADD_ROOM_MEMBER_MUTATION);
-
-  const [removeRoomMember] = useMutation<
-    {
-      removeRoomMember: {
-        room: { id: string } | null;
-        userErrors: { field: string[]; message: string }[];
-      };
-    },
-    { roomId: string; userId: string }
-  >(REMOVE_ROOM_MEMBER_MUTATION);
 
   const { data, loading } = useQuery<MessagesQueryData>(ROOM_MESSAGES_QUERY, {
     variables: { roomId },
@@ -372,87 +306,6 @@ export function RoomPage() {
     }
   }
 
-  const canAddMembers = !!membersData && user?.globalRole !== "RESTRICTED";
-  const canRemoveMembers = !!membersData && user?.globalRole === "ADMIN";
-
-  function handleAddMemberUsernameChange(event: ChangeEvent<HTMLInputElement>) {
-    setAddMemberUsername(event.target.value);
-    setShowAddSuggestions(true);
-    addMemberNav.setHighlightedIndex(0);
-  }
-
-  function selectAddMemberCandidate(username: string) {
-    setAddMemberUsername(username);
-    setShowAddSuggestions(false);
-    addMemberInputRef.current?.focus();
-  }
-
-  function handleAddMemberKeyDown(event: KeyboardEvent<HTMLInputElement>) {
-    if (!showAddSuggestions || addMemberCandidates.length === 0) return;
-    if (event.key === "ArrowDown") {
-      event.preventDefault();
-      addMemberNav.moveDown();
-    } else if (event.key === "ArrowUp") {
-      event.preventDefault();
-      addMemberNav.moveUp();
-    } else if (event.key === "Enter" || event.key === "Tab") {
-      event.preventDefault();
-      selectAddMemberCandidate(
-        addMemberCandidates[addMemberNav.highlightedIndex].username,
-      );
-    } else if (event.key === "Escape") {
-      setShowAddSuggestions(false);
-    }
-  }
-
-  async function handleAddMember(event: FormEvent) {
-    event.preventDefault();
-    if (!roomId || !addMemberUsername.trim()) return;
-    setAddMemberError(null);
-    const result = await addRoomMember({
-      variables: { roomId, username: addMemberUsername.trim() },
-    });
-    const payload = result.data?.addRoomMember;
-    if (!payload?.room) {
-      setAddMemberError(
-        payload?.userErrors[0]?.message ?? "Could not add member",
-      );
-      return;
-    }
-    setAddMemberUsername("");
-    setAddMemberOpen(false);
-    await refetchMembers();
-  }
-
-  async function handleRemoveMember(memberUserId: string) {
-    if (!roomId) return;
-    setRemoveMemberError(null);
-    setRemovingMemberIds((prev) => new Set(prev).add(memberUserId));
-    try {
-      const result = await removeRoomMember({
-        variables: { roomId, userId: memberUserId },
-      });
-      const payload = result.data?.removeRoomMember;
-      if (!payload?.room) {
-        setRemoveMemberError(
-          payload?.userErrors[0]?.message ?? "Could not remove member",
-        );
-        return;
-      }
-      await refetchMembers();
-    } catch {
-      setRemoveMemberError(
-        "Could not remove member — you may no longer have permission",
-      );
-    } finally {
-      setRemovingMemberIds((prev) => {
-        const next = new Set(prev);
-        next.delete(memberUserId);
-        return next;
-      });
-    }
-  }
-
   if (!roomId) return null;
 
   return (
@@ -469,125 +322,13 @@ export function RoomPage() {
             Private
           </Badge>
         )}
-        <Dialog>
-          <DialogTrigger asChild>
-            <Button variant="ghost" size="sm" className="shrink-0">
-              {members.length}{" "}
-              <span className="hidden sm:inline">
-                member{members.length === 1 ? "" : "s"}
-              </span>
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>
-                <RoomLabel
-                  isPrivate={room?.isPrivate ?? false}
-                  name={room?.name ?? "…"}
-                />{" "}
-                members
-              </DialogTitle>
-            </DialogHeader>
-            <ul className="space-y-2">
-              {members.map((member) => (
-                <li key={member.user.id} className="flex items-center gap-2">
-                  <span
-                    className={cn(
-                      "h-2 w-2 rounded-full",
-                      member.isOnline
-                        ? "bg-green-500"
-                        : "bg-muted-foreground/40",
-                    )}
-                  />
-                  <span>{member.user.username}</span>
-                  {member.role === "OWNER" && (
-                    <Badge variant="secondary" className="ml-auto">
-                      Owner
-                    </Badge>
-                  )}
-                  {canRemoveMembers && member.role !== "OWNER" && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="ml-auto h-auto px-2 py-0.5 text-xs text-destructive"
-                      disabled={removingMemberIds.has(member.user.id)}
-                      onClick={() => void handleRemoveMember(member.user.id)}
-                    >
-                      {removingMemberIds.has(member.user.id)
-                        ? "Removing…"
-                        : "Remove"}
-                    </Button>
-                  )}
-                </li>
-              ))}
-            </ul>
-            {removeMemberError && (
-              <p className="text-sm text-destructive">{removeMemberError}</p>
-            )}
-            {canAddMembers && (
-              <div className="border-t pt-3">
-                {addMemberOpen ? (
-                  <form
-                    onSubmit={(event) => void handleAddMember(event)}
-                    className="flex items-center gap-2"
-                  >
-                    <div className="relative flex-1">
-                      <Input
-                        ref={addMemberInputRef}
-                        autoFocus
-                        placeholder="Username"
-                        value={addMemberUsername}
-                        onChange={handleAddMemberUsernameChange}
-                        onKeyDown={handleAddMemberKeyDown}
-                        onBlur={() => setShowAddSuggestions(false)}
-                      />
-                      <UsernameSuggestions
-                        items={addMemberCandidates}
-                        highlightedIndex={addMemberNav.highlightedIndex}
-                        onSelect={(item) =>
-                          selectAddMemberCandidate(item.username)
-                        }
-                        position="below"
-                      />
-                    </div>
-                    <Button type="submit" size="sm" disabled={addingMember}>
-                      Add
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setAddMemberOpen(false);
-                        setAddMemberUsername("");
-                        setAddMemberError(null);
-                      }}
-                    >
-                      Cancel
-                    </Button>
-                  </form>
-                ) : (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full"
-                    onClick={() => {
-                      setAddMemberOpen(true);
-                      setShowAddSuggestions(true);
-                    }}
-                  >
-                    Add people
-                  </Button>
-                )}
-                {addMemberError && (
-                  <p className="mt-2 text-sm text-destructive">
-                    {addMemberError}
-                  </p>
-                )}
-              </div>
-            )}
-          </DialogContent>
-        </Dialog>
+        <MembersDialog
+          roomId={roomId}
+          room={room}
+          members={members}
+          membersLoaded={!!membersData}
+          refetchMembers={refetchMembers}
+        />
       </div>
       <ScrollArea className="flex-1 px-4" viewportRef={scrollContainerRef}>
         <div className="mx-auto max-w-full space-y-3 py-4">
