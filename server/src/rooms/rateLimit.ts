@@ -1,4 +1,4 @@
-import { createTokenBucketLimiter } from "../tokenBucket.js";
+import { createTokenBucketLimiter } from "../lib/tokenBucket.js";
 
 const limiter = createTokenBucketLimiter({
   capacityEnvVar: "RATE_LIMIT_MAX_ROOM_CREATIONS",
