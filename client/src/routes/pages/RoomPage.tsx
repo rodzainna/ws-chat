@@ -11,24 +11,13 @@ import {
 import { useParams } from "react-router";
 import { useLazyQuery, useMutation, useQuery } from "@apollo/client";
 import { toast } from "sonner";
-import { Loader2Icon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { RoomLabel } from "@/components/chat/RoomLabel";
+import { MessageItem } from "@/components/chat/MessageItem";
 import { UsernameSuggestions } from "@/components/chat/UsernameSuggestions";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
 import {
   Dialog,
   DialogContent,
@@ -50,14 +39,12 @@ import {
 } from "@/graphql/queries";
 import {
   edgeToChatMessage,
-  formatMessageTimestamp,
   type ChatMessage,
   type MessagesQueryData,
   type Room,
   type RoomMemberRow,
   type SuggestionItem,
 } from "@/lib/chat";
-import { renderContentWithMentions } from "@/lib/renderMentions";
 import { useSuggestionNavigation } from "@/hooks/useSuggestionNavigation";
 
 const NEAR_TOP_THRESHOLD_PX = 150;
@@ -670,138 +657,26 @@ export function RoomPage() {
           )}
           {orderedMessages.map((message) => {
             const isOwn = message.userId === user?.id;
-            const isEditing = editingId === message.id;
             return (
-              <div
+              <MessageItem
                 key={message.id}
-                className={cn(
-                  "group flex flex-col text-sm",
-                  isOwn ? "items-end" : "items-start",
-                )}
-              >
-                <div className="mb-1 flex items-center gap-2 px-1 text-xs text-muted-foreground">
-                  {!isOwn && (
-                    <span className="inline-flex items-center gap-1">
-                      <span
-                        className={cn(
-                          "h-1.5 w-1.5 rounded-full",
-                          onlineByUserId.get(message.userId)
-                            ? "bg-green-500"
-                            : "bg-muted-foreground/40",
-                        )}
-                      />
-                      <span className="font-medium">{message.username}</span>
-                    </span>
-                  )}
-                  <span>{formatMessageTimestamp(message.createdAt)}</span>
-                  <div className="flex items-center gap-2 px-1 text-xs text-muted-foreground">
-                    {message.editedAt && !message.deleted && (
-                      <span>(edited)</span>
-                    )}
-                    {!message.deleted && !isEditing && (
-                      <span className="hidden gap-1 group-hover:flex">
-                        {isOwn && (
-                          <Button
-                            type="button"
-                            variant="linkMuted"
-                            size="inline"
-                            onClick={() => startEdit(message)}
-                          >
-                            Edit
-                          </Button>
-                        )}
-                        {(isOwn || user?.globalRole === "ADMIN") && (
-                          <AlertDialog
-                            open={confirmDeleteId === message.id}
-                            onOpenChange={(open) =>
-                              setConfirmDeleteId(open ? message.id : null)
-                            }
-                          >
-                            <AlertDialogTrigger asChild>
-                              <Button
-                                type="button"
-                                variant="linkMuted"
-                                size="inline"
-                              >
-                                Delete
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>
-                                  Delete this message?
-                                </AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  This can't be undone — it'll show as "[message
-                                  deleted]" to everyone in the room.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction
-                                  disabled={deletePending}
-                                  onClick={(event) => {
-                                    event.preventDefault();
-                                    confirmDelete(message);
-                                  }}
-                                >
-                                  {deletePending ? (
-                                    <>
-                                      <Loader2Icon className="animate-spin" />
-                                      Deleting…
-                                    </>
-                                  ) : (
-                                    "Delete"
-                                  )}
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        )}
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                {isEditing ? (
-                  <form
-                    onSubmit={submitEdit}
-                    className="flex items-center w-full max-w-[70%] gap-2"
-                  >
-                    <Input
-                      autoFocus
-                      value={editDraft}
-                      onChange={(event) => setEditDraft(event.target.value)}
-                    />
-                    <div className="flex items-center gap-0.5">
-                      <Button size="sm" type="submit">
-                        Save
-                      </Button>
-                      <Button
-                        size="sm"
-                        type="button"
-                        variant="secondary"
-                        onClick={() => setEditingId(null)}
-                      >
-                        Cancel
-                      </Button>
-                    </div>
-                  </form>
-                ) : (
-                  <div
-                    className={cn(
-                      "max-w-[70%] rounded-2xl px-3 py-2",
-                      isOwn ? "bg-primary text-primary-foreground" : "bg-muted",
-                      message.deleted && "italic opacity-70",
-                    )}
-                  >
-                    {renderContentWithMentions(
-                      message.content,
-                      message.mentionedUsernames,
-                    )}
-                  </div>
-                )}
-              </div>
+                message={message}
+                isOwn={isOwn}
+                isOnline={onlineByUserId.get(message.userId) ?? false}
+                canDelete={isOwn || user?.globalRole === "ADMIN"}
+                isEditing={editingId === message.id}
+                editDraft={editDraft}
+                onEditDraftChange={setEditDraft}
+                onStartEdit={() => startEdit(message)}
+                onSubmitEdit={submitEdit}
+                onCancelEdit={() => setEditingId(null)}
+                deleteDialogOpen={confirmDeleteId === message.id}
+                onDeleteDialogOpenChange={(open) =>
+                  setConfirmDeleteId(open ? message.id : null)
+                }
+                deletePending={deletePending}
+                onConfirmDelete={() => confirmDelete(message)}
+              />
             );
           })}
           <div ref={bottomRef} />
