@@ -1,26 +1,26 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import type { GraphQLContext } from "../context.js";
+import type { GraphQLContext } from "../../context.js";
 
 const hashPassword = vi.fn();
-vi.mock("../../auth/password.js", () => ({
+vi.mock("../../../auth/password.js", () => ({
   hashPassword,
   MAX_PASSWORD_BYTES: 72,
 }));
 
 const establishSession = vi.fn();
-vi.mock("../../auth/session.js", () => ({ establishSession }));
+vi.mock("../../../auth/session.js", () => ({ establishSession }));
 
 const tryConsumeRegistrationToken = vi.fn();
-vi.mock("../../auth/registrationRateLimit.js", () => ({
+vi.mock("../../../auth/registrationRateLimit.js", () => ({
   tryConsumeRegistrationToken,
 }));
 
 const countUsers = vi.fn();
 const createUser = vi.fn();
-vi.mock("../../db/users.js", () => ({ countUsers, createUser }));
+vi.mock("../../../db/users.js", () => ({ countUsers, createUser }));
 
 const MAX_USERS = 3;
-vi.mock("../../env.js", () => ({ getMaxUsers: () => MAX_USERS }));
+vi.mock("../../../env.js", () => ({ getMaxUsers: () => MAX_USERS }));
 
 const { register } = await import("./register.js");
 

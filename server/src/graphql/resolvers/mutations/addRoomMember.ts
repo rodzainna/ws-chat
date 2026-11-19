@@ -1,20 +1,20 @@
 import { GraphQLError } from "graphql";
-import { requireActiveUser } from "../currentUser.js";
+import { requireActiveUser } from "../../currentUser.js";
 import {
   findActiveRoomById,
   findMembership,
   addMember,
-} from "../../db/rooms.js";
-import { findUserByUsername } from "../../db/users.js";
-import { isUniqueConstraintViolation } from "../../db/prismaErrors.js";
-import { sendServerMessage, type ServerMessage } from "../../ws/messages.js";
-import type { GraphQLContext } from "../context.js";
-import type { GraphQLUserError } from "../userErrors.js";
+} from "../../../db/rooms.js";
+import { findUserByUsername } from "../../../db/users.js";
+import { isUniqueConstraintViolation } from "../../../db/prismaErrors.js";
+import { sendServerMessage, type ServerMessage } from "../../../ws/messages.js";
+import type { GraphQLContext } from "../../context.js";
+import type { GraphQLUserError } from "../../userErrors.js";
 import {
   canAddRoomMembers,
   ROOM_NOT_FOUND,
   type RoomMutationPayload,
-} from "./roomErrors.js";
+} from "../roomErrors.js";
 
 const USER_NOT_FOUND: GraphQLUserError = {
   field: ["username"],

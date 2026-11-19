@@ -1,13 +1,13 @@
 import { GraphQLError } from "graphql";
-import { requireActiveUser } from "../currentUser.js";
+import { requireActiveUser } from "../../currentUser.js";
 import {
   softDeleteMessage,
   findMessageWithAuthorById,
   type MessageWithAuthor,
-} from "../../db/messages.js";
-import type { GraphQLContext } from "../context.js";
-import type { GraphQLUserError } from "../userErrors.js";
-import type { ServerMessage } from "../../ws/messages.js";
+} from "../../../db/messages.js";
+import type { GraphQLContext } from "../../context.js";
+import type { GraphQLUserError } from "../../userErrors.js";
+import type { ServerMessage } from "../../../ws/messages.js";
 
 type DeleteMessagePayload = {
   message: MessageWithAuthor | null;

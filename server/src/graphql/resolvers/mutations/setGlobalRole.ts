@@ -1,9 +1,9 @@
 import { GraphQLError } from "graphql";
-import { requireActiveUser } from "../currentUser.js";
-import { updateGlobalRoleGuarded } from "../../db/users.js";
-import type { GlobalRole, User } from "../../generated/prisma/client.js";
-import type { GraphQLContext } from "../context.js";
-import type { GraphQLUserError } from "../userErrors.js";
+import { requireActiveUser } from "../../currentUser.js";
+import { updateGlobalRoleGuarded } from "../../../db/users.js";
+import type { GlobalRole, User } from "../../../generated/prisma/client.js";
+import type { GraphQLContext } from "../../context.js";
+import type { GraphQLUserError } from "../../userErrors.js";
 
 type SetGlobalRolePayload = {
   user: User | null;

@@ -1,9 +1,12 @@
 import { GraphQLError } from "graphql";
-import { requireActiveUser } from "../currentUser.js";
-import { canAccessRoom } from "../../db/rooms.js";
-import { findMessagesPage, type MessageWithAuthor } from "../../db/messages.js";
-import type { GraphQLContext } from "../context.js";
-import { encodeCursor, decodeCursor } from "../cursor.js";
+import { requireActiveUser } from "../../currentUser.js";
+import { canAccessRoom } from "../../../db/rooms.js";
+import {
+  findMessagesPage,
+  type MessageWithAuthor,
+} from "../../../db/messages.js";
+import type { GraphQLContext } from "../../context.js";
+import { encodeCursor, decodeCursor } from "../../cursor.js";
 
 const DEFAULT_PAGE_SIZE = 50;
 const MAX_PAGE_SIZE = 50;

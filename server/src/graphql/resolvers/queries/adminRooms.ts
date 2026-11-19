@@ -1,8 +1,8 @@
 import { GraphQLError } from "graphql";
-import { requireActiveUser } from "../currentUser.js";
-import { findRoomsPage, countRooms } from "../../db/rooms.js";
-import type { GraphQLContext } from "../context.js";
-import { encodeCursor, decodeCursor } from "../cursor.js";
+import { requireActiveUser } from "../../currentUser.js";
+import { findRoomsPage, countRooms } from "../../../db/rooms.js";
+import type { GraphQLContext } from "../../context.js";
+import { encodeCursor, decodeCursor } from "../../cursor.js";
 
 const DEFAULT_PAGE_SIZE = 10;
 const MAX_PAGE_SIZE = 50;

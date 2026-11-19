@@ -1,17 +1,17 @@
 import { GraphQLError } from "graphql";
-import { requireActiveUser } from "../currentUser.js";
+import { requireActiveUser } from "../../currentUser.js";
 import {
   findActiveRoomById,
   findMembership,
   softDeleteRoom,
-} from "../../db/rooms.js";
-import type { GraphQLContext } from "../context.js";
+} from "../../../db/rooms.js";
+import type { GraphQLContext } from "../../context.js";
 import {
   isRoomOwnerOrAdmin,
   ROOM_NOT_FOUND,
   type RoomMutationPayload,
-} from "./roomErrors.js";
-import type { ServerMessage } from "../../ws/messages.js";
+} from "../roomErrors.js";
+import type { ServerMessage } from "../../../ws/messages.js";
 
 export async function deleteRoom(
   _parent: unknown,

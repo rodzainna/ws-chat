@@ -1,7 +1,7 @@
-import { rotateSession } from "../../auth/session.js";
-import type { User } from "../../generated/prisma/client.js";
-import type { GraphQLContext } from "../context.js";
-import type { GraphQLUserError } from "../userErrors.js";
+import { rotateSession } from "../../../auth/session.js";
+import type { User } from "../../../generated/prisma/client.js";
+import type { GraphQLContext } from "../../context.js";
+import type { GraphQLUserError } from "../../userErrors.js";
 
 type RefreshPayload = {
   user: User | null;

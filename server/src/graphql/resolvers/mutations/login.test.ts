@@ -1,22 +1,22 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import type { GraphQLContext } from "../context.js";
+import type { GraphQLContext } from "../../context.js";
 
 const verifyPassword = vi.fn();
 const hashPassword = vi.fn();
-vi.mock("../../auth/password.js", () => ({ verifyPassword, hashPassword }));
+vi.mock("../../../auth/password.js", () => ({ verifyPassword, hashPassword }));
 
 const establishSession = vi.fn();
-vi.mock("../../auth/session.js", () => ({ establishSession }));
+vi.mock("../../../auth/session.js", () => ({ establishSession }));
 
 const reserveLoginAttempt = vi.fn();
 const releaseLoginAttempt = vi.fn();
-vi.mock("../../auth/loginRateLimit.js", () => ({
+vi.mock("../../../auth/loginRateLimit.js", () => ({
   reserveLoginAttempt,
   releaseLoginAttempt,
 }));
 
 const findUserByUsername = vi.fn();
-vi.mock("../../db/users.js", () => ({ findUserByUsername }));
+vi.mock("../../../db/users.js", () => ({ findUserByUsername }));
 
 const { login } = await import("./login.js");
 
