@@ -132,14 +132,19 @@ export function MembersDialog({
     event.preventDefault();
     if (!roomId || !addMemberUsername.trim()) return;
     setAddMemberError(null);
-    const result = await addRoomMember({
-      variables: { roomId, username: addMemberUsername.trim() },
-    });
-    const payload = result.data?.addRoomMember;
-    if (!payload?.room) {
-      setAddMemberError(
-        payload?.userErrors[0]?.message ?? "Could not add member",
-      );
+    try {
+      const result = await addRoomMember({
+        variables: { roomId, username: addMemberUsername.trim() },
+      });
+      const payload = result.data?.addRoomMember;
+      if (!payload?.room) {
+        setAddMemberError(
+          payload?.userErrors[0]?.message ?? "Could not add member",
+        );
+        return;
+      }
+    } catch {
+      setAddMemberError("Could not add member — try again");
       return;
     }
     setAddMemberUsername("");
